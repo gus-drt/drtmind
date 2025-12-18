@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { Note, NoteLink } from '@/types/note';
@@ -6,8 +6,12 @@ import { toast } from 'sonner';
 
 const extractLinks = (content: string): string[] => {
   const linkRegex = /\[\[([^\]]+)\]\]/g;
-  const matches = content.match(linkRegex) || [];
-  return matches.map(match => match.slice(2, -2));
+  const matches: string[] = [];
+  let match;
+  while ((match = linkRegex.exec(content)) !== null) {
+    matches.push(match[1]);
+  }
+  return matches;
 };
 
 export const useNotes = () => {
@@ -16,6 +20,17 @@ export const useNotes = () => {
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState('');
   const [loading, setLoading] = useState(true);
+  
+  // Debounce timers for saving
+  const saveTimersRef = useRef<Map<string, NodeJS.Timeout>>(new Map());
+  const pendingUpdatesRef = useRef<Map<string, Partial<Pick<Note, 'title' | 'content'>>>>(new Map());
+
+  // Cleanup timers on unmount
+  useEffect(() => {
+    return () => {
+      saveTimersRef.current.forEach(timer => clearTimeout(timer));
+    };
+  }, []);
 
   // Fetch notes from database
   const fetchNotes = useCallback(async () => {
@@ -145,7 +160,8 @@ Experimente criar uma nova nota e linkar ela aqui usando [[sua nova nota]]!`;
     }
   }, [user]);
 
-  const updateNote = useCallback(async (id: string, updates: Partial<Pick<Note, 'title' | 'content'>>) => {
+  // Save to database with debounce
+  const saveToDatabase = useCallback(async (id: string, updates: Partial<Pick<Note, 'title' | 'content'>>) => {
     if (!user) return;
 
     try {
@@ -159,27 +175,80 @@ Experimente criar uma nova nota e linkar ela aqui usando [[sua nova nota]]!`;
         .eq('user_id', user.id);
 
       if (error) throw error;
-
-      setNotes(prev => prev.map(note => {
-        if (note.id !== id) return note;
-        
-        const linkedNotes = updates.content ? extractLinks(updates.content) : note.linkedNotes;
-        
-        return {
-          ...note,
-          ...updates,
-          linkedNotes,
-          updatedAt: new Date(),
-        };
-      }));
     } catch (error) {
       console.error('Error updating note:', error);
-      toast.error('Erro ao atualizar nota');
+      toast.error('Erro ao salvar nota');
     }
   }, [user]);
 
+  // Update note with debounced save (immediate local update, debounced DB save)
+  const updateNote = useCallback((id: string, updates: Partial<Pick<Note, 'title' | 'content'>>) => {
+    // Immediately update local state
+    setNotes(prev => prev.map(note => {
+      if (note.id !== id) return note;
+      
+      const newContent = updates.content ?? note.content;
+      const linkedNotes = extractLinks(newContent);
+      
+      return {
+        ...note,
+        ...updates,
+        linkedNotes,
+        updatedAt: new Date(),
+      };
+    }));
+
+    // Merge with pending updates
+    const currentPending = pendingUpdatesRef.current.get(id) || {};
+    pendingUpdatesRef.current.set(id, { ...currentPending, ...updates });
+
+    // Clear existing timer for this note
+    const existingTimer = saveTimersRef.current.get(id);
+    if (existingTimer) {
+      clearTimeout(existingTimer);
+    }
+
+    // Set new debounced save timer (500ms)
+    const timer = setTimeout(() => {
+      const pendingUpdate = pendingUpdatesRef.current.get(id);
+      if (pendingUpdate) {
+        saveToDatabase(id, pendingUpdate);
+        pendingUpdatesRef.current.delete(id);
+      }
+      saveTimersRef.current.delete(id);
+    }, 500);
+
+    saveTimersRef.current.set(id, timer);
+  }, [saveToDatabase]);
+
+  // Force save any pending updates (e.g., before navigation)
+  const flushPendingUpdates = useCallback(async () => {
+    const promises: Promise<void>[] = [];
+    
+    saveTimersRef.current.forEach((timer, id) => {
+      clearTimeout(timer);
+      const pendingUpdate = pendingUpdatesRef.current.get(id);
+      if (pendingUpdate) {
+        promises.push(saveToDatabase(id, pendingUpdate));
+      }
+    });
+    
+    saveTimersRef.current.clear();
+    pendingUpdatesRef.current.clear();
+    
+    await Promise.all(promises);
+  }, [saveToDatabase]);
+
   const deleteNote = useCallback(async (id: string) => {
     if (!user) return;
+
+    // Clear any pending updates for this note
+    const timer = saveTimersRef.current.get(id);
+    if (timer) {
+      clearTimeout(timer);
+      saveTimersRef.current.delete(id);
+    }
+    pendingUpdatesRef.current.delete(id);
 
     try {
       const { error } = await supabase
@@ -210,19 +279,30 @@ Experimente criar uma nova nota e linkar ela aqui usando [[sua nova nota]]!`;
     note.content.toLowerCase().includes(searchQuery.toLowerCase())
   );
 
+  // Calculate links between notes based on [[title]] references
   const getLinks = useCallback((): NoteLink[] => {
     const links: NoteLink[] = [];
+    const addedLinks = new Set<string>();
     
     notes.forEach(note => {
-      note.linkedNotes.forEach(linkedTitle => {
+      const linkedTitles = extractLinks(note.content);
+      
+      linkedTitles.forEach(linkedTitle => {
         const targetNote = notes.find(n => 
-          n.title.toLowerCase() === linkedTitle.toLowerCase()
+          n.title.toLowerCase().trim() === linkedTitle.toLowerCase().trim()
         );
+        
         if (targetNote && targetNote.id !== note.id) {
-          links.push({
-            source: note.id,
-            target: targetNote.id,
-          });
+          // Create a unique key to avoid duplicate links
+          const linkKey = [note.id, targetNote.id].sort().join('-');
+          
+          if (!addedLinks.has(linkKey)) {
+            links.push({
+              source: note.id,
+              target: targetNote.id,
+            });
+            addedLinks.add(linkKey);
+          }
         }
       });
     });
@@ -231,10 +311,13 @@ Experimente criar uma nova nota e linkar ela aqui usando [[sua nova nota]]!`;
   }, [notes]);
 
   const getNoteByTitle = useCallback((title: string): Note | undefined => {
-    return notes.find(n => n.title.toLowerCase() === title.toLowerCase());
+    return notes.find(n => n.title.toLowerCase().trim() === title.toLowerCase().trim());
   }, [notes]);
 
   const navigateToNote = useCallback(async (title: string) => {
+    // Flush pending updates before navigation
+    await flushPendingUpdates();
+    
     const note = getNoteByTitle(title);
     if (note) {
       setSelectedNoteId(note.id);
@@ -245,7 +328,7 @@ Experimente criar uma nova nota e linkar ela aqui usando [[sua nova nota]]!`;
         setSelectedNoteId(newNote.id);
       }
     }
-  }, [getNoteByTitle, createNote]);
+  }, [getNoteByTitle, createNote, flushPendingUpdates]);
 
   return {
     notes,
@@ -261,6 +344,7 @@ Experimente criar uma nova nota e linkar ela aqui usando [[sua nova nota]]!`;
     getLinks,
     getNoteByTitle,
     navigateToNote,
+    flushPendingUpdates,
     loading,
   };
 };
