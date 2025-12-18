@@ -1,13 +1,18 @@
-import { useState } from 'react';
-import { useNotes } from '@/hooks/useNotes';
+import { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
+import { useAuth } from '@/hooks/useAuth';
+import { useNotes } from '@/hooks/useNotesDb';
 import { NoteList } from '@/components/notes/NoteList';
 import { NoteEditor } from '@/components/notes/NoteEditor';
 import { NoteGraph } from '@/components/notes/NoteGraph';
 import { Button } from '@/components/ui/button';
-import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { Menu, X, Network, FileText } from 'lucide-react';
+import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
+import { Menu, X, Network, FileText, LogOut, Loader2 } from 'lucide-react';
 
 const Index = () => {
+  const navigate = useNavigate();
+  const { user, loading: authLoading, signOut } = useAuth();
+  
   const {
     notes,
     filteredNotes,
@@ -21,12 +26,39 @@ const Index = () => {
     deleteNote,
     getLinks,
     navigateToNote,
+    loading: notesLoading,
   } = useNotes();
 
   const [sidebarOpen, setSidebarOpen] = useState(true);
   const [activeView, setActiveView] = useState<'editor' | 'graph'>('editor');
 
+  // Redirect to auth if not logged in
+  useEffect(() => {
+    if (!authLoading && !user) {
+      navigate('/auth');
+    }
+  }, [user, authLoading, navigate]);
+
+  const handleSignOut = async () => {
+    await signOut();
+    navigate('/auth');
+  };
+
   const links = getLinks();
+
+  // Show loading while checking auth
+  if (authLoading) {
+    return (
+      <div className="flex items-center justify-center min-h-screen bg-background">
+        <Loader2 className="w-8 h-8 animate-spin" />
+      </div>
+    );
+  }
+
+  // Don't render if not authenticated
+  if (!user) {
+    return null;
+  }
 
   return (
     <div className="flex h-screen bg-background overflow-hidden">
@@ -44,6 +76,7 @@ const Index = () => {
             onSearchChange={setSearchQuery}
             onSelectNote={setSelectedNoteId}
             onCreateNote={() => createNote()}
+            loading={notesLoading}
           />
         </div>
       </aside>
@@ -52,14 +85,16 @@ const Index = () => {
       <main className="flex-1 flex flex-col min-w-0">
         {/* Toolbar */}
         <header className="flex items-center justify-between p-3 border-b-2 border-border bg-card">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => setSidebarOpen(!sidebarOpen)}
-            className="border-2"
-          >
-            {sidebarOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
-          </Button>
+          <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => setSidebarOpen(!sidebarOpen)}
+              className="border-2"
+            >
+              {sidebarOpen ? <X className="w-4 h-4" /> : <Menu className="w-4 h-4" />}
+            </Button>
+          </div>
 
           <Tabs
             value={activeView}
@@ -78,14 +113,29 @@ const Index = () => {
             </TabsList>
           </Tabs>
 
-          <div className="text-sm text-muted-foreground hidden sm:block">
-            {notes.length} notas • {links.length} conexões
+          <div className="flex items-center gap-3">
+            <span className="text-sm text-muted-foreground hidden sm:block">
+              {notes.length} notas • {links.length} conexões
+            </span>
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleSignOut}
+              className="border-2"
+            >
+              <LogOut className="w-4 h-4" />
+              <span className="hidden sm:inline ml-2">Sair</span>
+            </Button>
           </div>
         </header>
 
         {/* Content area */}
         <div className="flex-1 overflow-hidden">
-          {activeView === 'editor' ? (
+          {notesLoading ? (
+            <div className="flex items-center justify-center h-full">
+              <Loader2 className="w-8 h-8 animate-spin" />
+            </div>
+          ) : activeView === 'editor' ? (
             selectedNote ? (
               <NoteEditor
                 note={selectedNote}

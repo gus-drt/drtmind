@@ -1,7 +1,7 @@
 import { Note } from '@/types/note';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, FileText } from 'lucide-react';
+import { Plus, Search, FileText, Loader2 } from 'lucide-react';
 
 interface NoteListProps {
   notes: Note[];
@@ -10,6 +10,7 @@ interface NoteListProps {
   onSearchChange: (query: string) => void;
   onSelectNote: (id: string) => void;
   onCreateNote: () => void;
+  loading?: boolean;
 }
 
 export const NoteList = ({
@@ -19,6 +20,7 @@ export const NoteList = ({
   onSearchChange,
   onSelectNote,
   onCreateNote,
+  loading = false,
 }: NoteListProps) => {
   return (
     <div className="flex flex-col h-full">
@@ -43,6 +45,7 @@ export const NoteList = ({
           onClick={onCreateNote}
           className="w-full border-2"
           variant="outline"
+          disabled={loading}
         >
           <Plus className="w-4 h-4 mr-2" />
           Nova Nota
@@ -51,7 +54,11 @@ export const NoteList = ({
 
       {/* Notes list */}
       <div className="flex-1 overflow-auto p-2">
-        {notes.length === 0 ? (
+        {loading ? (
+          <div className="flex items-center justify-center p-8">
+            <Loader2 className="w-6 h-6 animate-spin" />
+          </div>
+        ) : notes.length === 0 ? (
           <p className="text-sm text-muted-foreground text-center p-4">
             {searchQuery ? 'Nenhuma nota encontrada' : 'Nenhuma nota ainda'}
           </p>
@@ -93,7 +100,7 @@ export const NoteList = ({
 
       {/* Footer */}
       <div className="p-3 border-t-2 border-border text-xs text-muted-foreground text-center">
-        {notes.length} nota(s)
+        {loading ? 'Carregando...' : `${notes.length} nota(s)`}
       </div>
     </div>
   );
