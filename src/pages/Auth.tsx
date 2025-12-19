@@ -85,18 +85,18 @@ const Auth = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center bg-background p-4">
+    <div className="min-h-[100dvh] flex items-center justify-center bg-background p-4">
       <div className="w-full max-w-md">
         {/* Header */}
-        <div className="text-center mb-8">
-          <h1 className="text-3xl font-bold mb-2">MindFlow</h1>
-          <p className="text-muted-foreground">
+        <div className="text-center mb-6 sm:mb-8">
+          <h1 className="text-2xl sm:text-3xl font-bold mb-2">MindFlow</h1>
+          <p className="text-sm sm:text-base text-muted-foreground">
             {isLogin ? 'Entre na sua conta' : 'Crie sua conta'}
           </p>
         </div>
 
         {/* Form */}
-        <div className="border-2 border-border p-6 bg-card shadow-md">
+        <div className="border-2 border-border p-4 sm:p-6 bg-card shadow-md">
           <form onSubmit={handleSubmit} className="space-y-4">
             <div className="space-y-2">
               <Label htmlFor="email">Email</Label>
@@ -108,7 +108,7 @@ const Auth = () => {
                   placeholder="seu@email.com"
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
-                  className="pl-10 border-2"
+                  className="pl-10 border-2 h-11"
                   disabled={loading}
                 />
               </div>
@@ -127,7 +127,7 @@ const Auth = () => {
                   placeholder="••••••••"
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
-                  className="pl-10 border-2"
+                  className="pl-10 border-2 h-11"
                   disabled={loading}
                 />
               </div>
@@ -138,7 +138,7 @@ const Auth = () => {
 
             <Button
               type="submit"
-              className="w-full border-2"
+              className="w-full border-2 h-11"
               disabled={loading}
             >
               {loading ? (
@@ -159,7 +159,7 @@ const Auth = () => {
                 setIsLogin(!isLogin);
                 setErrors({});
               }}
-              className="text-sm text-muted-foreground hover:text-foreground transition-colors"
+              className="text-sm text-muted-foreground hover:text-foreground transition-colors py-2"
               disabled={loading}
             >
               {isLogin ? (
@@ -172,7 +172,7 @@ const Auth = () => {
         </div>
 
         {/* Features */}
-        <div className="mt-8 text-center text-sm text-muted-foreground">
+        <div className="mt-6 sm:mt-8 text-center text-xs sm:text-sm text-muted-foreground">
           <p>✨ Notas conectadas • 📊 Visualização em grafo • 🧠 Feito para TDAH</p>
         </div>
       </div>
