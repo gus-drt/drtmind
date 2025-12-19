@@ -243,106 +243,126 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
 
   const getNodeAtPosition = useCallback((x: number, y: number): GraphNode | null => {
     const nodes = nodesRef.current;
+    // Larger hit area for touch devices
+    const hitRadius = 'ontouchstart' in window ? 900 : 400;
     for (let i = nodes.length - 1; i >= 0; i--) {
       const node = nodes[i];
       const dx = x - node.x;
       const dy = y - node.y;
-      if (dx * dx + dy * dy < 400) {
+      if (dx * dx + dy * dy < hitRadius) {
         return node;
       }
     }
     return null;
   }, []);
 
-  const handleMouseDown = useCallback((e: React.MouseEvent) => {
+  const getEventPosition = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
+    if (!rect) return null;
     
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const node = getNodeAtPosition(x, y);
+    if ('touches' in e) {
+      if (e.touches.length > 0) {
+        return {
+          x: e.touches[0].clientX - rect.left,
+          y: e.touches[0].clientY - rect.top,
+        };
+      }
+      if (e.changedTouches.length > 0) {
+        return {
+          x: e.changedTouches[0].clientX - rect.left,
+          y: e.changedTouches[0].clientY - rect.top,
+        };
+      }
+      return null;
+    }
     
+    return {
+      x: e.clientX - rect.left,
+      y: e.clientY - rect.top,
+    };
+  }, []);
+
+  const handlePointerDown = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    const pos = getEventPosition(e);
+    if (!pos) return;
+    
+    const node = getNodeAtPosition(pos.x, pos.y);
     if (node) {
       setDraggingNode(node.id);
     }
-  }, [getNodeAtPosition]);
+  }, [getEventPosition, getNodeAtPosition]);
 
-  const handleMouseMove = useCallback((e: React.MouseEvent) => {
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
-    
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
+  const handlePointerMove = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    const pos = getEventPosition(e);
+    if (!pos) return;
     
     if (draggingNode) {
       const node = nodesRef.current.find(n => n.id === draggingNode);
       if (node) {
-        node.x = x;
-        node.y = y;
+        node.x = pos.x;
+        node.y = pos.y;
         node.vx = 0;
         node.vy = 0;
       }
-    } else {
-      const node = getNodeAtPosition(x, y);
+    } else if (!('touches' in e)) {
+      const node = getNodeAtPosition(pos.x, pos.y);
       setHoveredNode(node?.id || null);
     }
-  }, [draggingNode, getNodeAtPosition]);
+  }, [draggingNode, getEventPosition, getNodeAtPosition]);
 
-  const handleMouseUp = useCallback((e: React.MouseEvent) => {
+  const handlePointerUp = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     if (draggingNode) {
-      const rect = canvasRef.current?.getBoundingClientRect();
-      if (rect) {
-        const x = e.clientX - rect.left;
-        const y = e.clientY - rect.top;
-        const node = getNodeAtPosition(x, y);
+      const pos = getEventPosition(e);
+      if (pos) {
+        const node = getNodeAtPosition(pos.x, pos.y);
         if (node && node.id === draggingNode) {
           onSelectNote(node.id);
         }
       }
       setDraggingNode(null);
     }
-  }, [draggingNode, getNodeAtPosition, onSelectNote]);
+  }, [draggingNode, getEventPosition, getNodeAtPosition, onSelectNote]);
 
   const handleClick = useCallback((e: React.MouseEvent) => {
     if (draggingNode) return;
     
-    const rect = canvasRef.current?.getBoundingClientRect();
-    if (!rect) return;
+    const pos = getEventPosition(e);
+    if (!pos) return;
     
-    const x = e.clientX - rect.left;
-    const y = e.clientY - rect.top;
-    const node = getNodeAtPosition(x, y);
-    
+    const node = getNodeAtPosition(pos.x, pos.y);
     if (node) {
       onSelectNote(node.id);
     }
-  }, [draggingNode, getNodeAtPosition, onSelectNote]);
+  }, [draggingNode, getEventPosition, getNodeAtPosition, onSelectNote]);
 
-  const handleMouseLeave = useCallback(() => {
+  const handlePointerLeave = useCallback(() => {
     setDraggingNode(null);
     setHoveredNode(null);
   }, []);
 
   if (notes.length === 0) {
     return (
-      <div className="flex items-center justify-center h-full text-muted-foreground">
+      <div className="flex items-center justify-center h-full text-muted-foreground p-4 text-center">
         <p>Crie uma nota para ver o grafo</p>
       </div>
     );
   }
 
   return (
-    <div ref={containerRef} className="w-full h-full min-h-[300px] relative">
+    <div ref={containerRef} className="w-full h-full min-h-[250px] sm:min-h-[300px] relative touch-none">
       <canvas
         ref={canvasRef}
         width={dimensions.width}
         height={dimensions.height}
-        className="cursor-pointer"
-        onMouseDown={handleMouseDown}
-        onMouseMove={handleMouseMove}
-        onMouseUp={handleMouseUp}
-        onMouseLeave={handleMouseLeave}
+        className="cursor-pointer touch-none"
+        onMouseDown={handlePointerDown}
+        onMouseMove={handlePointerMove}
+        onMouseUp={handlePointerUp}
+        onMouseLeave={handlePointerLeave}
         onClick={handleClick}
+        onTouchStart={handlePointerDown}
+        onTouchMove={handlePointerMove}
+        onTouchEnd={handlePointerUp}
       />
       {/* Debug info */}
       <div className="absolute bottom-2 left-2 text-xs text-muted-foreground bg-background/80 px-2 py-1 border border-border">
