@@ -1,73 +1,123 @@
-# Welcome to your Lovable project
+# 🧠 DrtMind
 
-## Project info
+> **DrtMind** é uma ferramenta de pensamento em rede (networked thought) projetada para funcionar como um "segundo cérebro". Desenvolvida para transformar notas isoladas em um ecossistema de conhecimento interconectado.
 
-**URL**: https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID
+<p align="center">
+<img src="[https://img.shields.io/badge/React-18.3-blue?logo=react](https://www.google.com/search?q=https://img.shields.io/badge/React-18.3-blue%3Flogo%3Dreact)" alt="React" />
+<img src="[https://img.shields.io/badge/TypeScript-5.8-blue?logo=typescript](https://www.google.com/search?q=https://img.shields.io/badge/TypeScript-5.8-blue%3Flogo%3Dtypescript)" alt="TypeScript" />
+<img src="[https://img.shields.io/badge/Tailwind-3.4-38B2AC?logo=tailwind-css](https://www.google.com/search?q=https://img.shields.io/badge/Tailwind-3.4-38B2AC%3Flogo%3Dtailwind-css)" alt="Tailwind CSS" />
+<img src="[https://img.shields.io/badge/Supabase-Backend-green?logo=supabase](https://www.google.com/search?q=https://img.shields.io/badge/Supabase-Backend-green%3Flogo%3Dsupabase)" alt="Supabase" />
+<img src="[https://img.shields.io/badge/Vite-5.4-646CFF?logo=vite](https://www.google.com/search?q=https://img.shields.io/badge/Vite-5.4-646CFF%3Flogo%3Dvite)" alt="Vite" />
+</p>
 
-## How can I edit this code?
+---
 
-There are several ways of editing your application.
+## 📖 O Projeto
 
-**Use Lovable**
+O **DrtMind** nasceu de uma necessidade pessoal: a frustração com o armazenamento linear de informações. Em um mundo onde o conhecimento é fluido e multifacetado, pastas e listas tradicionais muitas vezes se tornam cemitérios de arquivos.
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and start prompting.
+Esta aplicação foi construída para permitir que as ideias se conectem organicamente. Inspirado em metodologias como *Zettelkasten* e ferramentas como Obsidian/Roam Research, o DrtMind foca na simplicidade e na visualização de conexões por meio de um **Grafo de Notas**.
 
-Changes made via Lovable will be committed automatically to this repo.
+---
 
-**Use your preferred IDE**
+## ✨ Funcionalidades Principais
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+* **Visualização em Grafo:** Uma interface interativa que permite ver como suas notas se conectam visualmente, facilitando a descoberta de novos insights.
+* **Editor Markdown:** Escreva notas ricas com suporte nativo a Markdown e pré-visualização em tempo real.
+* **Pensamento Bidirecional:** Conecte notas facilmente e navegue entre elas através de links internos.
+* **Autenticação Segura:** Proteção total dos seus pensamentos através de login social e e-mail via Supabase.
+* **Interface Neo-Brutalista:** Design moderno baseado em Shadcn/UI com bordas marcantes e alta legibilidade.
+* **Responsividade Total:** Uma experiência fluida tanto no desktop quanto em dispositivos móveis.
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+---
 
-Follow these steps:
+## 🛠️ Stack Tecnológica
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+O projeto utiliza o que há de mais moderno no ecossistema Web:
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+* **Frontend:** [React](https://reactjs.org/) + [TypeScript](https://www.typescriptlang.org/)
+* **Estilização:** [Tailwind CSS](https://tailwindcss.com/) + [Shadcn/UI](https://ui.shadcn.com/)
+* **Backend & Auth:** [Supabase](https://supabase.com/)
+* **Gerenciamento de Estado:** [TanStack Query](https://tanstack.com/query/latest)
+* **Build Tool:** [Vite](https://vitejs.dev/)
+* **Ícones:** [Lucide React](https://lucide.dev/)
 
-# Step 3: Install the necessary dependencies.
-npm i
+---
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
+## 🚀 Como Executar
+
+### Pré-requisitos
+
+* Node.js (v18 ou superior)
+* npm ou Bun
+
+### Instalação
+
+1. Clone o repositório:
+
+```bash
+git clone https://github.com/seu-usuario/drtmind.git
+cd drtmind
+
 ```
 
-**Edit a file directly in GitHub**
+2. Instale as dependências:
 
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
+```bash
+npm install
 
-**Use GitHub Codespaces**
+```
 
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
+3. Configure as variáveis de ambiente:
+Crie um arquivo `.env` na raiz e adicione suas chaves do Supabase:
 
-## What technologies are used for this project?
+```env
+VITE_SUPABASE_URL=sua_url_aqui
+VITE_SUPABASE_ANON_KEY=sua_chave_anon_aqui
 
-This project is built with:
+```
 
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
+4. Inicie o servidor de desenvolvimento:
 
-## How can I deploy this project?
+```bash
+npm run dev
 
-Simply open [Lovable](https://lovable.dev/projects/REPLACE_WITH_PROJECT_ID) and click on Share -> Publish.
+```
 
-## Can I connect a custom domain to my Lovable project?
+---
 
-Yes, you can!
+## 🗺️ Estrutura de Arquivos
 
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
+```text
+src/
+├── components/         # Componentes reutilizáveis (UI, Notes, etc)
+├── hooks/              # Custom hooks para lógica de negócios e DB
+├── integrations/       # Configuração e tipos do Supabase
+├── pages/              # Páginas da aplicação (Index, Auth, NotFound)
+└── types/              # Definições de tipos TypeScript
 
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/features/custom-domain#custom-domain)
+```
+
+---
+
+## 🤝 Contribuição
+
+Contribuições são o que fazem a comunidade open source um lugar incrível para aprender, inspirar e criar. Qualquer contribuição que você fizer será **muito apreciada**.
+
+1. Faça um Fork do projeto
+2. Crie uma Branch para sua Feature (`git checkout -b feature/AmazingFeature`)
+3. Adicione suas mudanças (`git commit -m 'Add some AmazingFeature'`)
+4. Faça o Push da Branch (`git push origin feature/AmazingFeature`)
+5. Abra um Pull Request
+
+---
+
+## 📝 Licença
+
+Distribuído sob a licença MIT. Veja `LICENSE` para mais informações.
+
+---
+
+<p align="center">
+Desenvolvido por <strong>Gus DRT</strong> 🚀
+</p>
