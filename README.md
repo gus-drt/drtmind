@@ -3,7 +3,7 @@
 > **DrtMind** é uma ferramenta de pensamento em rede (networked thought) projetada para funcionar como um "segundo cérebro". Desenvolvida para transformar notas isoladas em um ecossistema de conhecimento interconectado.
 
 <p align="center">
-<img src="[https://img.shields.io/badge/React-18.3-blue?logo=react](https://www.google.com/search?q=https://img.shields.io/badge/React-18.3-blue%3Flogo%3Dreact)" alt="React" />
+<img src="[https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB]" alt="React" />
 <img src="[https://img.shields.io/badge/TypeScript-5.8-blue?logo=typescript](https://www.google.com/search?q=https://img.shields.io/badge/TypeScript-5.8-blue%3Flogo%3Dtypescript)" alt="TypeScript" />
 <img src="[https://img.shields.io/badge/Tailwind-3.4-38B2AC?logo=tailwind-css](https://www.google.com/search?q=https://img.shields.io/badge/Tailwind-3.4-38B2AC%3Flogo%3Dtailwind-css)" alt="Tailwind CSS" />
 <img src="[https://img.shields.io/badge/Supabase-Backend-green?logo=supabase](https://www.google.com/search?q=https://img.shields.io/badge/Supabase-Backend-green%3Flogo%3Dsupabase)" alt="Supabase" />
