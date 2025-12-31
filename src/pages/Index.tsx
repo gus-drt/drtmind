@@ -9,6 +9,7 @@ import { NoteGraph } from '@/components/notes/NoteGraph';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
+import { ThemeToggle } from '@/components/ThemeToggle';
 import { Menu, Network, FileText, LogOut, Loader2, Plus } from 'lucide-react';
 
 const Index = () => {
@@ -163,6 +164,7 @@ const Index = () => {
             <span className="text-xs sm:text-sm text-muted-foreground hidden md:block">
               {notes.length} notas • {links.length} conexões
             </span>
+            <ThemeToggle />
             <Button
               variant="outline"
               size="sm"
