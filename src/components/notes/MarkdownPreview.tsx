@@ -7,50 +7,106 @@ interface MarkdownPreviewProps {
 
 export const MarkdownPreview = ({ content, onLinkClick }: MarkdownPreviewProps) => {
   const html = useMemo(() => {
-    let result = content
-      // Escape HTML
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      // Note links [[title]]
-      .replace(/\[\[([^\]]+)\]\]/g, '<span class="note-link" data-link="$1">$1</span>')
-      // Headers
-      .replace(/^### (.+)$/gm, '<h3>$1</h3>')
-      .replace(/^## (.+)$/gm, '<h2>$1</h2>')
-      .replace(/^# (.+)$/gm, '<h1>$1</h1>')
-      // Bold and italic
-      .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
-      .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\*(.+?)\*/g, '<em>$1</em>')
-      .replace(/___(.+?)___/g, '<strong><em>$1</em></strong>')
-      .replace(/__(.+?)__/g, '<strong>$1</strong>')
-      .replace(/_(.+?)_/g, '<em>$1</em>')
-      // Strikethrough
-      .replace(/~~(.+?)~~/g, '<del>$1</del>')
-      // Inline code
-      .replace(/`([^`]+)`/g, '<code>$1</code>')
-      // Code blocks
-      .replace(/```([^`]+)```/gs, '<pre><code>$1</code></pre>')
-      // Links
-      .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>')
-      // Unordered lists
-      .replace(/^- (.+)$/gm, '<li>$1</li>')
-      .replace(/^\* (.+)$/gm, '<li>$1</li>')
-      // Ordered lists
-      .replace(/^\d+\. (.+)$/gm, '<li>$1</li>')
-      // Blockquotes
-      .replace(/^> (.+)$/gm, '<blockquote>$1</blockquote>')
-      // Horizontal rule
-      .replace(/^---$/gm, '<hr />')
-      // Paragraphs
-      .replace(/\n\n/g, '</p><p>')
-      // Line breaks
-      .replace(/\n/g, '<br />');
+    // Split content into lines for better block-level handling
+    const lines = content.split('\n');
+    const processedLines: string[] = [];
+    let inList = false;
+    let listItems: string[] = [];
 
-    // Wrap consecutive li elements in ul
-    result = result.replace(/(<li>.*?<\/li>)+/gs, '<ul>$&</ul>');
-    
-    return `<p>${result}</p>`;
+    const flushList = () => {
+      if (listItems.length > 0) {
+        processedLines.push(`<ul>${listItems.join('')}</ul>`);
+        listItems = [];
+      }
+      inList = false;
+    };
+
+    const processInline = (text: string) => {
+      return text
+        // Escape HTML
+        .replace(/&/g, '&amp;')
+        .replace(/</g, '&lt;')
+        .replace(/>/g, '&gt;')
+        // Note links [[title]]
+        .replace(/\[\[([^\]]+)\]\]/g, '<span class="note-link" data-link="$1">$1</span>')
+        // Bold and italic
+        .replace(/\*\*\*(.+?)\*\*\*/g, '<strong><em>$1</em></strong>')
+        .replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>')
+        .replace(/\*(.+?)\*/g, '<em>$1</em>')
+        .replace(/___(.+?)___/g, '<strong><em>$1</em></strong>')
+        .replace(/__(.+?)__/g, '<strong>$1</strong>')
+        .replace(/_(.+?)_/g, '<em>$1</em>')
+        // Strikethrough
+        .replace(/~~(.+?)~~/g, '<del>$1</del>')
+        // Inline code
+        .replace(/`([^`]+)`/g, '<code>$1</code>')
+        // Links
+        .replace(/\[([^\]]+)\]\(([^)]+)\)/g, '<a href="$2" target="_blank" rel="noopener">$1</a>');
+    };
+
+    for (const line of lines) {
+      const trimmedLine = line.trim();
+
+      // Empty line - flush list and add break
+      if (trimmedLine === '') {
+        flushList();
+        continue;
+      }
+
+      // Headers
+      if (trimmedLine.startsWith('### ')) {
+        flushList();
+        processedLines.push(`<h3>${processInline(trimmedLine.slice(4))}</h3>`);
+        continue;
+      }
+      if (trimmedLine.startsWith('## ')) {
+        flushList();
+        processedLines.push(`<h2>${processInline(trimmedLine.slice(3))}</h2>`);
+        continue;
+      }
+      if (trimmedLine.startsWith('# ')) {
+        flushList();
+        processedLines.push(`<h1>${processInline(trimmedLine.slice(2))}</h1>`);
+        continue;
+      }
+
+      // Horizontal rule
+      if (trimmedLine === '---') {
+        flushList();
+        processedLines.push('<hr />');
+        continue;
+      }
+
+      // Blockquote
+      if (trimmedLine.startsWith('> ')) {
+        flushList();
+        processedLines.push(`<blockquote>${processInline(trimmedLine.slice(2))}</blockquote>`);
+        continue;
+      }
+
+      // Unordered list items
+      if (trimmedLine.startsWith('- ') || trimmedLine.startsWith('* ')) {
+        inList = true;
+        listItems.push(`<li>${processInline(trimmedLine.slice(2))}</li>`);
+        continue;
+      }
+
+      // Ordered list items
+      const orderedMatch = trimmedLine.match(/^\d+\.\s(.+)$/);
+      if (orderedMatch) {
+        inList = true;
+        listItems.push(`<li>${processInline(orderedMatch[1])}</li>`);
+        continue;
+      }
+
+      // Regular paragraph
+      flushList();
+      processedLines.push(`<p>${processInline(trimmedLine)}</p>`);
+    }
+
+    flushList();
+
+    return processedLines.join('');
   }, [content]);
 
   const handleClick = (e: React.MouseEvent) => {
