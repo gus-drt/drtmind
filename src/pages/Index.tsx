@@ -1,8 +1,9 @@
-import { useState, useEffect } from 'react';
+import { useState, useEffect, useCallback } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useNotes } from '@/hooks/useNotesDb';
 import { useIsMobile } from '@/hooks/use-mobile';
+import { useSwipe } from '@/hooks/useSwipe';
 import { NoteList } from '@/components/notes/NoteList';
 import { NoteEditor } from '@/components/notes/NoteEditor';
 import { NoteGraph } from '@/components/notes/NoteGraph';
@@ -37,6 +38,18 @@ const Index = () => {
 
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
   const [activeView, setActiveView] = useState<'editor' | 'graph'>('editor');
+
+  // Swipe gestures for opening/closing sidebar
+  const openSidebar = useCallback(() => setSidebarOpen(true), []);
+  const closeSidebar = useCallback(() => setSidebarOpen(false), []);
+  
+  useSwipe({
+    onSwipeRight: openSidebar,
+    onSwipeLeft: sidebarOpen ? closeSidebar : undefined,
+    threshold: 50,
+    edgeWidth: 30,
+    edgeOnly: !sidebarOpen, // Only require edge for opening, allow anywhere for closing
+  });
 
   // Close sidebar on mobile when note is selected
   const handleSelectNote = (id: string) => {
