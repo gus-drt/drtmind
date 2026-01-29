@@ -28,6 +28,8 @@ const Index = () => {
     createNote,
     updateNote,
     deleteNote,
+    togglePinNote,
+    pinnedCount,
     getLinks,
     navigateToNote,
     loading: notesLoading,
@@ -88,23 +90,29 @@ const Index = () => {
         createNote();
         if (isMobile) setSidebarOpen(false);
       }}
+      onTogglePin={togglePinNote}
+      pinnedCount={pinnedCount}
       loading={notesLoading}
     />
   );
 
   return (
-    <div className="flex h-[100dvh] bg-background overflow-hidden">
-      {/* Desktop Sidebar */}
-      {!isMobile && (
-        <aside
-          className={`${
-            sidebarOpen ? 'w-72' : 'w-0'
-          } transition-all duration-300 border-r-2 border-border bg-sidebar flex-shrink-0 overflow-hidden`}
-        >
-          <div className="w-72 h-full">
+    <div className="flex h-[100dvh] bg-background overflow-hidden relative">
+      {/* Desktop Sidebar - Overlay mode */}
+      {!isMobile && sidebarOpen && (
+        <>
+          {/* Backdrop */}
+          <div 
+            className="fixed inset-0 bg-black/30 z-40 transition-opacity duration-300"
+            onClick={() => setSidebarOpen(false)}
+          />
+          {/* Sidebar */}
+          <aside
+            className="fixed left-0 top-0 h-full w-72 z-50 border-r-2 border-border bg-sidebar shadow-lg transition-transform duration-300"
+          >
             {sidebarContent}
-          </div>
-        </aside>
+          </aside>
+        </>
       )}
 
       {/* Mobile Sidebar Sheet */}

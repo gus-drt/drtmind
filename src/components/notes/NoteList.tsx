@@ -1,7 +1,7 @@
 import { Note } from '@/types/note';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
-import { Plus, Search, FileText, Loader2 } from 'lucide-react';
+import { Plus, Search, FileText, Loader2, Pin } from 'lucide-react';
 
 interface NoteListProps {
   notes: Note[];
@@ -10,6 +10,8 @@ interface NoteListProps {
   onSearchChange: (query: string) => void;
   onSelectNote: (id: string) => void;
   onCreateNote: () => void;
+  onTogglePin: (id: string) => void;
+  pinnedCount: number;
   loading?: boolean;
 }
 
@@ -20,6 +22,8 @@ export const NoteList = ({
   onSearchChange,
   onSelectNote,
   onCreateNote,
+  onTogglePin,
+  pinnedCount,
   loading = false,
 }: NoteListProps) => {
   return (
@@ -65,34 +69,58 @@ export const NoteList = ({
         ) : (
           <div className="space-y-1">
             {notes.map((note) => (
-              <button
+              <div
                 key={note.id}
-                onClick={() => onSelectNote(note.id)}
-                className={`w-full text-left p-3 sm:p-3 border-2 transition-all active:scale-[0.98] ${
+                className={`w-full text-left p-3 sm:p-3 border-2 transition-all ${
                   selectedNoteId === note.id
                     ? 'bg-primary text-primary-foreground border-primary shadow-xs'
-                    : 'bg-card border-border hover:border-primary hover:shadow-2xs active:bg-muted'
+                    : 'bg-card border-border hover:border-primary hover:shadow-2xs'
                 }`}
               >
                 <div className="flex items-start gap-2">
-                  <FileText className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                  <div className="min-w-0 flex-1">
-                    <h3 className="font-medium truncate text-sm sm:text-base">{note.title}</h3>
-                    <p className={`text-xs truncate mt-1 ${
-                      selectedNoteId === note.id ? 'opacity-80' : 'text-muted-foreground'
-                    }`}>
-                      {note.content.replace(/[#*_\[\]`]/g, '').slice(0, 50)}...
-                    </p>
-                    {note.linkedNotes.length > 0 && (
-                      <p className={`text-xs mt-1 ${
-                        selectedNoteId === note.id ? 'opacity-70' : 'text-muted-foreground'
-                      }`}>
-                        🔗 {note.linkedNotes.length} conexão(ões)
-                      </p>
-                    )}
-                  </div>
+                  <button
+                    onClick={() => onSelectNote(note.id)}
+                    className="flex-1 text-left active:scale-[0.98]"
+                  >
+                    <div className="flex items-start gap-2">
+                      <FileText className="w-4 h-4 mt-0.5 flex-shrink-0" />
+                      <div className="min-w-0 flex-1">
+                        <h3 className="font-medium truncate text-sm sm:text-base">{note.title}</h3>
+                        <p className={`text-xs truncate mt-1 ${
+                          selectedNoteId === note.id ? 'opacity-80' : 'text-muted-foreground'
+                        }`}>
+                          {note.content.replace(/[#*_\[\]`]/g, '').slice(0, 50)}...
+                        </p>
+                        {note.linkedNotes.length > 0 && (
+                          <p className={`text-xs mt-1 ${
+                            selectedNoteId === note.id ? 'opacity-70' : 'text-muted-foreground'
+                          }`}>
+                            🔗 {note.linkedNotes.length} conexão(ões)
+                          </p>
+                        )}
+                      </div>
+                    </div>
+                  </button>
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      onTogglePin(note.id);
+                    }}
+                    className={`p-1.5 rounded transition-colors flex-shrink-0 ${
+                      note.pinned
+                        ? selectedNoteId === note.id
+                          ? 'text-primary-foreground'
+                          : 'text-primary'
+                        : selectedNoteId === note.id
+                          ? 'text-primary-foreground/50 hover:text-primary-foreground'
+                          : 'text-muted-foreground/50 hover:text-muted-foreground'
+                    }`}
+                    title={note.pinned ? 'Desafixar nota' : pinnedCount >= 3 ? 'Limite de 3 notas fixadas' : 'Fixar nota'}
+                  >
+                    <Pin className={`w-4 h-4 ${note.pinned ? 'fill-current' : ''}`} />
+                  </button>
                 </div>
-              </button>
+              </div>
             ))}
           </div>
         )}

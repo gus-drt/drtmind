@@ -54,6 +54,8 @@ export const useNotes = () => {
         createdAt: new Date(note.created_at),
         updatedAt: new Date(note.updated_at),
         linkedNotes: extractLinks(note.content),
+        pinned: note.pinned,
+        pinnedAt: note.pinned_at ? new Date(note.pinned_at) : null,
       }));
 
       setNotes(notesWithLinks);
@@ -111,6 +113,8 @@ Experimente criar uma nova nota e linkar ela aqui usando [[sua nova nota]]!`;
         createdAt: new Date(data.created_at),
         updatedAt: new Date(data.updated_at),
         linkedNotes: extractLinks(data.content),
+        pinned: data.pinned,
+        pinnedAt: data.pinned_at ? new Date(data.pinned_at) : null,
       };
 
       setNotes([newNote]);
@@ -147,6 +151,8 @@ Experimente criar uma nova nota e linkar ela aqui usando [[sua nova nota]]!`;
         createdAt: new Date(data.created_at),
         updatedAt: new Date(data.updated_at),
         linkedNotes: [],
+        pinned: data.pinned,
+        pinnedAt: data.pinned_at ? new Date(data.pinned_at) : null,
       };
 
       setNotes(prev => [newNote, ...prev]);
@@ -274,10 +280,76 @@ Experimente criar uma nova nota e linkar ela aqui usando [[sua nova nota]]!`;
 
   const selectedNote = notes.find(n => n.id === selectedNoteId) || null;
 
-  const filteredNotes = notes.filter(note =>
+  // Sort notes: pinned first (by pinnedAt desc), then by updatedAt desc
+  const sortedNotes = [...notes].sort((a, b) => {
+    if (a.pinned && !b.pinned) return -1;
+    if (!a.pinned && b.pinned) return 1;
+    if (a.pinned && b.pinned) {
+      return (b.pinnedAt?.getTime() || 0) - (a.pinnedAt?.getTime() || 0);
+    }
+    return b.updatedAt.getTime() - a.updatedAt.getTime();
+  });
+
+  const filteredNotes = sortedNotes.filter(note =>
     note.title.toLowerCase().includes(searchQuery.toLowerCase()) ||
     note.content.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const pinnedCount = notes.filter(n => n.pinned).length;
+
+  const togglePinNote = useCallback(async (id: string) => {
+    if (!user) return;
+
+    const note = notes.find(n => n.id === id);
+    if (!note) return;
+
+    const newPinned = !note.pinned;
+    
+    // Check if we're trying to pin and already at max
+    if (newPinned && pinnedCount >= 3) {
+      toast.error('Você pode fixar no máximo 3 notas');
+      return;
+    }
+
+    const pinnedAt = newPinned ? new Date().toISOString() : null;
+
+    // Optimistic update
+    setNotes(prev => prev.map(n => {
+      if (n.id !== id) return n;
+      return {
+        ...n,
+        pinned: newPinned,
+        pinnedAt: pinnedAt ? new Date(pinnedAt) : null,
+      };
+    }));
+
+    try {
+      const { error } = await supabase
+        .from('notes')
+        .update({
+          pinned: newPinned,
+          pinned_at: pinnedAt,
+        })
+        .eq('id', id)
+        .eq('user_id', user.id);
+
+      if (error) throw error;
+      
+      toast.success(newPinned ? 'Nota fixada' : 'Nota desafixada');
+    } catch (error) {
+      console.error('Error toggling pin:', error);
+      // Revert optimistic update
+      setNotes(prev => prev.map(n => {
+        if (n.id !== id) return n;
+        return {
+          ...n,
+          pinned: note.pinned,
+          pinnedAt: note.pinnedAt,
+        };
+      }));
+      toast.error('Erro ao fixar nota');
+    }
+  }, [user, notes, pinnedCount]);
 
   // Calculate links between notes based on [[title]] references
   const getLinks = useCallback((): NoteLink[] => {
@@ -341,6 +413,8 @@ Experimente criar uma nova nota e linkar ela aqui usando [[sua nova nota]]!`;
     createNote,
     updateNote,
     deleteNote,
+    togglePinNote,
+    pinnedCount,
     getLinks,
     getNoteByTitle,
     navigateToNote,

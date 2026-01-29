@@ -5,6 +5,8 @@ export interface Note {
   createdAt: Date;
   updatedAt: Date;
   linkedNotes: string[]; // IDs of linked notes
+  pinned: boolean;
+  pinnedAt: Date | null;
 }
 
 export interface NoteLink {
