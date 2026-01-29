@@ -10,7 +10,7 @@ import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
 import { ThemeToggle } from '@/components/ThemeToggle';
-import { Menu, Network, FileText, LogOut, Loader2, Plus } from 'lucide-react';
+import { Menu, Network, FileText, LogOut, Loader2, Plus, X } from 'lucide-react';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -98,18 +98,31 @@ const Index = () => {
 
   return (
     <div className="flex h-[100dvh] bg-background overflow-hidden relative">
-      {/* Desktop Sidebar - Overlay mode */}
-      {!isMobile && sidebarOpen && (
+      {/* Desktop Sidebar - Overlay mode with animation */}
+      {!isMobile && (
         <>
           {/* Backdrop */}
           <div 
-            className="fixed inset-0 bg-black/30 z-40 transition-opacity duration-300"
+            className={`fixed inset-0 bg-black/30 z-40 transition-opacity duration-300 ${
+              sidebarOpen ? 'opacity-100' : 'opacity-0 pointer-events-none'
+            }`}
             onClick={() => setSidebarOpen(false)}
           />
           {/* Sidebar */}
           <aside
-            className="fixed left-0 top-0 h-full w-72 z-50 border-r-2 border-border bg-sidebar shadow-lg transition-transform duration-300"
+            className={`fixed left-0 top-0 h-full w-72 z-50 border-r-2 border-border bg-sidebar shadow-lg transition-transform duration-300 ease-out ${
+              sidebarOpen ? 'translate-x-0' : '-translate-x-full'
+            }`}
           >
+            {/* Close button */}
+            <Button
+              variant="ghost"
+              size="sm"
+              onClick={() => setSidebarOpen(false)}
+              className="absolute top-3 right-3 h-8 w-8 p-0 z-10"
+            >
+              <X className="w-4 h-4" />
+            </Button>
             {sidebarContent}
           </aside>
         </>
