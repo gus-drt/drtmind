@@ -77,14 +77,14 @@ export const NoteList = ({
                     : 'bg-card border-border hover:border-primary hover:shadow-2xs'
                 }`}
               >
-                <div className="flex items-start gap-2">
+                <div className="flex items-start gap-2 min-w-0">
                   <button
                     onClick={() => onSelectNote(note.id)}
-                    className="flex-1 text-left active:scale-[0.98]"
+                    className="flex-1 min-w-0 text-left active:scale-[0.98]"
                   >
-                    <div className="flex items-start gap-2">
+                    <div className="flex items-start gap-2 min-w-0">
                       <FileText className="w-4 h-4 mt-0.5 flex-shrink-0" />
-                      <div className="min-w-0 flex-1">
+                      <div className="min-w-0 flex-1 overflow-hidden">
                         <h3 className="font-medium truncate text-sm sm:text-base">{note.title}</h3>
                         <p className={`text-xs truncate mt-1 ${
                           selectedNoteId === note.id ? 'opacity-80' : 'text-muted-foreground'
