@@ -198,14 +198,20 @@ const Index = () => {
             <span className="text-xs sm:text-sm text-muted-foreground hidden md:block">
               {notes.length} notas • {links.length} conexões
             </span>
-            <Button
-              variant="outline"
-              size="icon"
-              onClick={() => navigate('/pricing')}
-              className="border-2"
-            >
-              <Crown className="w-4 h-4" />
-            </Button>
+            <div className="relative">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => navigate('/pricing')}
+                className="border-2 h-9 w-9 p-0 bg-purple-500/10 border-purple-500/30 hover:bg-purple-500/20 text-purple-600 dark:text-purple-400"
+              >
+                <Crown className="w-4 h-4" />
+              </Button>
+              <span className="absolute -top-1.5 -right-1.5 flex h-3.5 w-3.5 items-center justify-center">
+                <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-purple-400 opacity-75" />
+                <span className="relative inline-flex rounded-full h-2.5 w-2.5 bg-purple-500" />
+              </span>
+            </div>
             <ThemeToggle />
             <Button
               variant="outline"
