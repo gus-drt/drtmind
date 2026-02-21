@@ -1,6 +1,6 @@
-# 🧠 DrtMind
+# 🧠 Graph Notes
 
-> **DrtMind** é uma ferramenta de pensamento em rede (networked thought) projetada para funcionar como um "segundo cérebro". Desenvolvida para transformar notas isoladas em um ecossistema de conhecimento interconectado.
+> **Graph Notes** é uma ferramenta de pensamento em rede (networked thought) projetada para funcionar como um "segundo cérebro". Desenvolvida para transformar notas isoladas em um ecossistema de conhecimento interconectado.
 
 <p align="center">
 <img alt="Static Badge" src="https://img.shields.io/badge/React-20232A?style=for-the-badge&logo=react&logoColor=61DAFB">
@@ -14,7 +14,7 @@
 
 ## 📖 O Projeto
 
-O **DrtMind** nasceu de uma necessidade pessoal: a frustração com o armazenamento linear de informações. Em um mundo onde o conhecimento é fluido e multifacetado, pastas e listas tradicionais muitas vezes se tornam cemitérios de arquivos.
+O **Graph Notes** nasceu de uma necessidade pessoal: a frustração com o armazenamento linear de informações. Em um mundo onde o conhecimento é fluido e multifacetado, pastas e listas tradicionais muitas vezes se tornam cemitérios de arquivos.
 
 Esta aplicação foi construída para permitir que as ideias se conectem organicamente. Inspirado em metodologias como *Zettelkasten* e ferramentas como Obsidian/Roam Research, o DrtMind foca na simplicidade e na visualização de conexões por meio de um **Grafo de Notas**.
 
@@ -56,8 +56,8 @@ O projeto utiliza o que há de mais moderno no ecossistema Web:
 1. Clone o repositório:
 
 ```bash
-git clone https://github.com/seu-usuario/drtmind.git
-cd drtmind
+git clone https://github.com/seu-usuario/graphnotes.git
+cd graphnotes
 
 ```
 
@@ -119,5 +119,5 @@ Distribuído sob a licença MIT. Veja `LICENSE` para mais informações.
 ---
 
 <p align="center">
-Desenvolvido por <strong>Gus DRT</strong> 🚀
+Desenvolvido por <strong>Gustavo Duarte</strong> 🚀
 </p>
