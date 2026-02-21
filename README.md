@@ -16,7 +16,7 @@
 
 O **Graph Notes** nasceu de uma necessidade pessoal: a frustração com o armazenamento linear de informações. Em um mundo onde o conhecimento é fluido e multifacetado, pastas e listas tradicionais muitas vezes se tornam cemitérios de arquivos.
 
-Esta aplicação foi construída para permitir que as ideias se conectem organicamente. Inspirado em metodologias como *Zettelkasten* e ferramentas como Obsidian/Roam Research, o DrtMind foca na simplicidade e na visualização de conexões por meio de um **Grafo de Notas**.
+Esta aplicação foi construída para permitir que as ideias se conectem organicamente. Inspirado em metodologias como *Zettelkasten* e ferramentas como Obsidian/Roam Research, o Graph Notes foca na simplicidade e na visualização de conexões por meio de um **Grafo de Notas**.
 
 ---
 
