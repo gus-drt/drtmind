@@ -75,7 +75,7 @@ export const useNotes = () => {
   const createWelcomeNote = async () => {
     if (!user) return;
 
-    const welcomeContent = `# Bem-vindo ao MindFlow! 🧠
+    const welcomeContent = `# Bem-vindo ao Graph Notes! 🧠
 
 Este é o seu espaço de notas conectadas.
 
@@ -100,7 +100,7 @@ Experimente criar uma nova nota e linkar ela aqui usando [[sua nova nota]]!`;
         .from('notes')
         .insert({
           user_id: user.id,
-          title: 'Bem-vindo ao MindFlow',
+          title: 'Bem-vindo ao Graph Notes',
           content: welcomeContent,
         })
         .select()

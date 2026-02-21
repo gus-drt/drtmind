@@ -30,7 +30,7 @@ export const NoteList = ({
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="p-3 sm:p-4 border-b-2 border-border">
-        <h2 className="text-lg font-bold mb-3 sm:mb-4">MindFlow</h2>
+        <h2 className="text-lg font-bold mb-3 sm:mb-4">Graph Notes</h2>
         
         {/* Search */}
         <div className="relative mb-2 sm:mb-3">
