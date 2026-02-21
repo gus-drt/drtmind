@@ -200,12 +200,11 @@ const Index = () => {
             </span>
             <Button
               variant="outline"
-              size="sm"
+              size="icon"
               onClick={() => navigate('/pricing')}
-              className="border-2 h-9 w-9 p-0 sm:h-auto sm:w-auto sm:px-3"
+              className="border-2"
             >
               <Crown className="w-4 h-4" />
-              <span className="hidden sm:inline ml-2">Planos</span>
             </Button>
             <ThemeToggle />
             <Button

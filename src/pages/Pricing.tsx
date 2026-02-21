@@ -103,14 +103,14 @@ const Pricing = () => {
               return (
                 <div
                   key={key}
-                  className={`relative border-2 p-5 sm:p-6 bg-card flex flex-col ${
+                  className={`relative border-2 p-5 sm:p-6 bg-card flex flex-col overflow-visible ${
                     isPopular
                       ? "border-primary shadow-md"
                       : "border-border"
                   } ${isCurrentPlan ? "ring-2 ring-primary" : ""}`}
                 >
                   {isPopular && (
-                    <Badge className="absolute -top-3 left-1/2 -translate-x-1/2">
+                    <Badge className="absolute -top-3 left-1/2 -translate-x-1/2 z-10">
                       Popular
                     </Badge>
                   )}
@@ -118,7 +118,7 @@ const Pricing = () => {
                   {isCurrentPlan && (
                     <Badge
                       variant="outline"
-                      className="absolute -top-3 right-3 border-primary text-primary"
+                      className="absolute -top-3 right-3 border-primary text-primary z-10 bg-card"
                     >
                       Seu plano
                     </Badge>
