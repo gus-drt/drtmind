@@ -92,7 +92,7 @@ const Auth = () => {
       <div className="w-full max-w-md">
         {/* Header */}
         <div className="text-center mb-6 sm:mb-8">
-          <h1 className="text-2xl sm:text-3xl font-bold mb-2">MindFlow</h1>
+          <h1 className="text-2xl sm:text-3xl font-bold mb-2">Graph Notes</h1>
           <p className="text-sm sm:text-base text-muted-foreground">
             {isLogin ? 'Entre na sua conta' : 'Crie sua conta'}
           </p>
