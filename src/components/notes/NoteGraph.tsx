@@ -196,6 +196,14 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
 
         // Center gravity + velocity
         currentNodes.forEach(node => {
+          // Index node is always pinned at center
+          if (node.id === indexNoteId && node.id !== draggingNode) {
+            node.x = 0;
+            node.y = 0;
+            node.vx = 0;
+            node.vy = 0;
+            return;
+          }
           if (node.id !== draggingNode) {
             node.vx += (0 - node.x) * 0.002;
             node.vy += (0 - node.y) * 0.002;
