@@ -236,44 +236,64 @@ const Index = () => {
         </header>
 
         {/* Content area */}
-        <div className="flex-1 overflow-hidden">
+        <div className="flex-1 overflow-hidden relative">
           {notesLoading ? (
             <div className="flex items-center justify-center h-full">
               <Loader2 className="w-8 h-8 animate-spin" />
             </div>
-          ) : activeView === 'editor' ? (
-            selectedNote ? (
-              <NoteEditor
-                note={selectedNote}
-                onUpdate={updateNote}
-                onDelete={deleteNote}
-                onLinkClick={navigateToNote}
-                onBackToGraph={cameFromGraph ? handleBackToGraph : undefined}
-              />
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full text-center p-4 sm:p-8">
-                <div className="w-12 h-12 sm:w-16 sm:h-16 border-2 border-border flex items-center justify-center mb-4">
-                  <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-muted-foreground" />
-                </div>
-                <h2 className="text-lg sm:text-xl font-bold mb-2">Nenhuma nota selecionada</h2>
-                <p className="text-sm sm:text-base text-muted-foreground mb-4">
-                  {isMobile ? 'Toque no menu para ver suas notas' : 'Selecione uma nota na barra lateral ou crie uma nova'}
-                </p>
-                <Button onClick={() => createNote()} className="border-2" variant="outline">
-                  <Plus className="w-4 h-4 mr-2" />
-                  Nova Nota
-                </Button>
-              </div>
-            )
           ) : (
-            <div className="h-full p-2 sm:p-4">
-              <NoteGraph
-                notes={notes}
-                links={links}
-                selectedNoteId={selectedNoteId}
-                onSelectNote={handleSelectNote}
-              />
-            </div>
+            <>
+              {/* Editor view */}
+              <div
+                className={`absolute inset-0 transition-all duration-300 ease-out ${
+                  activeView === 'editor'
+                    ? 'opacity-100 translate-x-0'
+                    : 'opacity-0 translate-x-[-20px] pointer-events-none'
+                }`}
+              >
+                {selectedNote ? (
+                  <NoteEditor
+                    note={selectedNote}
+                    onUpdate={updateNote}
+                    onDelete={deleteNote}
+                    onLinkClick={navigateToNote}
+                    onBackToGraph={cameFromGraph ? handleBackToGraph : undefined}
+                  />
+                ) : (
+                  <div className="flex flex-col items-center justify-center h-full text-center p-4 sm:p-8">
+                    <div className="w-12 h-12 sm:w-16 sm:h-16 border-2 border-border flex items-center justify-center mb-4">
+                      <FileText className="w-6 h-6 sm:w-8 sm:h-8 text-muted-foreground" />
+                    </div>
+                    <h2 className="text-lg sm:text-xl font-bold mb-2">Nenhuma nota selecionada</h2>
+                    <p className="text-sm sm:text-base text-muted-foreground mb-4">
+                      {isMobile ? 'Toque no menu para ver suas notas' : 'Selecione uma nota na barra lateral ou crie uma nova'}
+                    </p>
+                    <Button onClick={() => createNote()} className="border-2" variant="outline">
+                      <Plus className="w-4 h-4 mr-2" />
+                      Nova Nota
+                    </Button>
+                  </div>
+                )}
+              </div>
+
+              {/* Graph view */}
+              <div
+                className={`absolute inset-0 transition-all duration-300 ease-out ${
+                  activeView === 'graph'
+                    ? 'opacity-100 translate-x-0'
+                    : 'opacity-0 translate-x-[20px] pointer-events-none'
+                }`}
+              >
+                <div className="h-full p-2 sm:p-4">
+                  <NoteGraph
+                    notes={notes}
+                    links={links}
+                    selectedNoteId={selectedNoteId}
+                    onSelectNote={handleSelectNote}
+                  />
+                </div>
+              </div>
+            </>
           )}
         </div>
       </main>
