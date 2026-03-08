@@ -27,6 +27,7 @@ export const NoteList = ({
   onTogglePin,
   pinnedCount,
   loading = false,
+  getTagsForNote,
 }: NoteListProps) => {
   return (
     <div className="flex flex-col h-full">
