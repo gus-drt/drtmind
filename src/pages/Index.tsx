@@ -230,6 +230,15 @@ const Index = () => {
             <Button
               variant="outline"
               size="sm"
+              onClick={() => navigate('/settings')}
+              className="border-2 h-9 w-9 p-0 sm:h-auto sm:w-auto sm:px-3"
+            >
+              <Settings className="w-4 h-4" />
+              <span className="hidden sm:inline ml-2">Config</span>
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
               onClick={handleSignOut}
               className="border-2 h-9 w-9 p-0 sm:h-auto sm:w-auto sm:px-3"
             >
