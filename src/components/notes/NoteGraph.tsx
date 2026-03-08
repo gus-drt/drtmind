@@ -296,7 +296,7 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
 
     animationRef.current = requestAnimationFrame(simulate);
     return () => { if (animationRef.current) cancelAnimationFrame(animationRef.current); };
-  }, [stableLinks, draggingNode, dimensions, selectedNoteId, hoveredNode]);
+  }, [stableLinks, draggingNode, dimensions, selectedNoteId, hoveredNode, indexNoteId]);
 
   const getNodeAtPosition = useCallback((sx: number, sy: number): GraphNode | null => {
     const world = screenToWorld(sx, sy);
