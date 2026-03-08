@@ -54,6 +54,9 @@ const Index = () => {
   // Close sidebar on mobile when note is selected
   const handleSelectNote = (id: string) => {
     setSelectedNoteId(id);
+    if (activeView === 'graph') {
+      setActiveView('editor');
+    }
     if (isMobile) {
       setSidebarOpen(false);
     }
