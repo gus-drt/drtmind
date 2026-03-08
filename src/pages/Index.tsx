@@ -248,6 +248,7 @@ const Index = () => {
                 onUpdate={updateNote}
                 onDelete={deleteNote}
                 onLinkClick={navigateToNote}
+                onBackToGraph={cameFromGraph ? handleBackToGraph : undefined}
               />
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-center p-4 sm:p-8">
