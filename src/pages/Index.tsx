@@ -37,6 +37,8 @@ const Index = () => {
     loading: notesLoading,
   } = useNotes();
 
+  const { tags, createTag, addTagToNote, removeTagFromNote, getTagsForNote } = useTags();
+
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
   const [activeView, setActiveView] = useState<'editor' | 'graph'>('editor');
   const [cameFromGraph, setCameFromGraph] = useState(false);
