@@ -38,6 +38,7 @@ const Index = () => {
 
   const [sidebarOpen, setSidebarOpen] = useState(!isMobile);
   const [activeView, setActiveView] = useState<'editor' | 'graph'>('editor');
+  const [cameFromGraph, setCameFromGraph] = useState(false);
 
   // Swipe gestures for opening/closing sidebar
   const openSidebar = useCallback(() => setSidebarOpen(true), []);
@@ -55,12 +56,18 @@ const Index = () => {
   const handleSelectNote = (id: string) => {
     setSelectedNoteId(id);
     if (activeView === 'graph') {
+      setCameFromGraph(true);
       setActiveView('editor');
     }
     if (isMobile) {
       setSidebarOpen(false);
     }
   };
+
+  const handleBackToGraph = useCallback(() => {
+    setCameFromGraph(false);
+    setActiveView('graph');
+  }, []);
 
   // Redirect to auth if not logged in
   useEffect(() => {
@@ -241,6 +248,7 @@ const Index = () => {
                 onUpdate={updateNote}
                 onDelete={deleteNote}
                 onLinkClick={navigateToNote}
+                onBackToGraph={cameFromGraph ? handleBackToGraph : undefined}
               />
             ) : (
               <div className="flex flex-col items-center justify-center h-full text-center p-4 sm:p-8">

@@ -2,16 +2,17 @@ import { useState, useEffect, useRef, useCallback } from 'react';
 import { Note } from '@/types/note';
 import { MarkdownPreview } from './MarkdownPreview';
 import { Button } from '@/components/ui/button';
-import { Eye, Edit3, Trash2 } from 'lucide-react';
+import { Eye, Edit3, Trash2, ArrowLeft } from 'lucide-react';
 
 interface NoteEditorProps {
   note: Note;
   onUpdate: (id: string, updates: Partial<Pick<Note, 'title' | 'content'>>) => void;
   onDelete: (id: string) => void;
   onLinkClick: (title: string) => void;
+  onBackToGraph?: () => void;
 }
 
-export const NoteEditor = ({ note, onUpdate, onDelete, onLinkClick }: NoteEditorProps) => {
+export const NoteEditor = ({ note, onUpdate, onDelete, onLinkClick, onBackToGraph }: NoteEditorProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [localTitle, setLocalTitle] = useState(note.title);
   const [localContent, setLocalContent] = useState(note.content);
@@ -68,14 +69,27 @@ export const NoteEditor = ({ note, onUpdate, onDelete, onLinkClick }: NoteEditor
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center justify-between p-2 sm:p-4 border-b-2 border-border gap-2">
-        <input
-          ref={titleInputRef}
-          type="text"
-          value={localTitle}
-          onChange={handleTitleChange}
-          className="text-base sm:text-xl font-bold bg-transparent border-none outline-none focus:ring-0 flex-1 min-w-0"
-          placeholder="Título da nota"
-        />
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          {onBackToGraph && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onBackToGraph}
+              className="border-2 h-8 w-8 p-0 flex-shrink-0"
+              title="Voltar ao grafo"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+          )}
+          <input
+            ref={titleInputRef}
+            type="text"
+            value={localTitle}
+            onChange={handleTitleChange}
+            className="text-base sm:text-xl font-bold bg-transparent border-none outline-none focus:ring-0 flex-1 min-w-0"
+            placeholder="Título da nota"
+          />
+        </div>
         <div className="flex gap-1 sm:gap-2 flex-shrink-0">
           <Button
             variant="outline"
