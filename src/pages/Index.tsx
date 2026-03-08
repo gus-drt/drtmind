@@ -293,7 +293,7 @@ const Index = () => {
                     : 'opacity-0 translate-x-[20px] pointer-events-none'
                 }`}
               >
-                <div className="h-full p-2 sm:p-4">
+                <div className="h-full">
                   <NoteGraph
                     notes={notes}
                     links={links}

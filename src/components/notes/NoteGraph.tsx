@@ -1,11 +1,19 @@
 import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
 import { Note, NoteLink, GraphNode } from '@/types/note';
+import { Button } from '@/components/ui/button';
+import { ZoomIn, ZoomOut, Maximize } from 'lucide-react';
 
 interface NoteGraphProps {
   notes: Note[];
   links: NoteLink[];
   selectedNoteId: string | null;
   onSelectNote: (id: string) => void;
+}
+
+interface Camera {
+  x: number;
+  y: number;
+  zoom: number;
 }
 
 export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGraphProps) => {
@@ -18,168 +26,214 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [, forceRender] = useState(0);
 
-  // Memoize links for stable reference
+  // Camera state for pan/zoom
+  const cameraRef = useRef<Camera>({ x: 0, y: 0, zoom: 1 });
+  const [isPanning, setIsPanning] = useState(false);
+  const panStartRef = useRef({ x: 0, y: 0, camX: 0, camY: 0 });
+  const pinchStartRef = useRef<{ dist: number; zoom: number } | null>(null);
+
   const stableLinks = useMemo(() => links, [JSON.stringify(links)]);
 
-  // Initialize/update nodes when notes change
+  // Convert screen coords to world coords
+  const screenToWorld = useCallback((sx: number, sy: number) => {
+    const cam = cameraRef.current;
+    return {
+      x: (sx - dimensions.width / 2) / cam.zoom + cam.x,
+      y: (sy - dimensions.height / 2) / cam.zoom + cam.y,
+    };
+  }, [dimensions]);
+
+  // Initialize/update nodes
   useEffect(() => {
-    const centerX = dimensions.width / 2;
-    const centerY = dimensions.height / 2;
     const radius = Math.min(dimensions.width, dimensions.height) * 0.35;
-    
     const existingNodes = nodesRef.current;
-    
+
     nodesRef.current = notes.map((note, i) => {
       const existingNode = existingNodes.find(n => n.id === note.id);
       const angle = (i / Math.max(notes.length, 1)) * Math.PI * 2;
-      
+
       return {
         id: note.id,
         title: note.title,
-        x: existingNode?.x ?? centerX + Math.cos(angle) * radius + (Math.random() - 0.5) * 50,
-        y: existingNode?.y ?? centerY + Math.sin(angle) * radius + (Math.random() - 0.5) * 50,
+        x: existingNode?.x ?? Math.cos(angle) * radius + (Math.random() - 0.5) * 50,
+        y: existingNode?.y ?? Math.sin(angle) * radius + (Math.random() - 0.5) * 50,
         vx: existingNode?.vx ?? 0,
         vy: existingNode?.vy ?? 0,
       };
     });
-    
+
     forceRender(n => n + 1);
   }, [notes, dimensions]);
 
-  // Handle resize
+  // Handle resize with ResizeObserver
   useEffect(() => {
-    const updateDimensions = () => {
-      if (containerRef.current) {
-        const rect = containerRef.current.getBoundingClientRect();
-        if (rect.width > 0 && rect.height > 0) {
-          setDimensions({ width: rect.width, height: rect.height });
+    const container = containerRef.current;
+    if (!container) return;
+
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const { width, height } = entry.contentRect;
+        if (width > 0 && height > 0) {
+          setDimensions({ width: Math.floor(width), height: Math.floor(height) });
         }
       }
-    };
-    
-    updateDimensions();
-    window.addEventListener('resize', updateDimensions);
-    
-    // Also check after a short delay for layout settling
-    const timer = setTimeout(updateDimensions, 100);
-    
-    return () => {
-      window.removeEventListener('resize', updateDimensions);
-      clearTimeout(timer);
-    };
+    });
+
+    observer.observe(container);
+    return () => observer.disconnect();
   }, []);
 
-  // Force simulation and rendering loop
-  useEffect(() => {
+  // Fit all nodes in view
+  const fitToView = useCallback(() => {
     const nodes = nodesRef.current;
     if (nodes.length === 0) return;
 
+    let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
+    nodes.forEach(n => {
+      minX = Math.min(minX, n.x);
+      maxX = Math.max(maxX, n.x);
+      minY = Math.min(minY, n.y);
+      maxY = Math.max(maxY, n.y);
+    });
+
+    const padding = 80;
+    const rangeX = maxX - minX + padding * 2;
+    const rangeY = maxY - minY + padding * 2;
+    const zoom = Math.min(
+      dimensions.width / rangeX,
+      dimensions.height / rangeY,
+      2
+    );
+
+    cameraRef.current = {
+      x: (minX + maxX) / 2,
+      y: (minY + maxY) / 2,
+      zoom: Math.max(0.2, zoom),
+    };
+    forceRender(n => n + 1);
+  }, [dimensions]);
+
+  // Auto-fit on first load or when notes count changes significantly
+  const prevNoteCountRef = useRef(0);
+  useEffect(() => {
+    if (notes.length > 0 && (prevNoteCountRef.current === 0 || Math.abs(notes.length - prevNoteCountRef.current) > 2)) {
+      setTimeout(fitToView, 300);
+    }
+    prevNoteCountRef.current = notes.length;
+  }, [notes.length, fitToView]);
+
+  // Zoom helper
+  const applyZoom = useCallback((delta: number, centerX?: number, centerY?: number) => {
+    const cam = cameraRef.current;
+    const factor = delta > 0 ? 1.15 : 1 / 1.15;
+    const newZoom = Math.max(0.1, Math.min(5, cam.zoom * factor));
+
+    if (centerX !== undefined && centerY !== undefined) {
+      // Zoom toward pointer
+      const worldBefore = {
+        x: (centerX - dimensions.width / 2) / cam.zoom + cam.x,
+        y: (centerY - dimensions.height / 2) / cam.zoom + cam.y,
+      };
+      const worldAfter = {
+        x: (centerX - dimensions.width / 2) / newZoom + cam.x,
+        y: (centerY - dimensions.height / 2) / newZoom + cam.y,
+      };
+      cam.x += worldBefore.x - worldAfter.x;
+      cam.y += worldBefore.y - worldAfter.y;
+    }
+
+    cam.zoom = newZoom;
+    forceRender(n => n + 1);
+  }, [dimensions]);
+
+  // Physics + render loop
+  useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
-    
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
     const simulate = () => {
       const currentNodes = nodesRef.current;
-      if (currentNodes.length === 0) {
-        animationRef.current = requestAnimationFrame(simulate);
-        return;
+      const cam = cameraRef.current;
+
+      if (currentNodes.length > 0) {
+        // Repulsion
+        for (let i = 0; i < currentNodes.length; i++) {
+          for (let j = i + 1; j < currentNodes.length; j++) {
+            const a = currentNodes[i], b = currentNodes[j];
+            const dx = b.x - a.x, dy = b.y - a.y;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            const force = 2500 / (dist * dist);
+            const fx = (dx / dist) * force, fy = (dy / dist) * force;
+            if (a.id !== draggingNode) { a.vx -= fx; a.vy -= fy; }
+            if (b.id !== draggingNode) { b.vx += fx; b.vy += fy; }
+          }
+        }
+
+        // Attraction for links
+        stableLinks.forEach(link => {
+          const s = currentNodes.find(n => n.id === link.source);
+          const t = currentNodes.find(n => n.id === link.target);
+          if (s && t) {
+            const dx = t.x - s.x, dy = t.y - s.y;
+            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
+            const force = (dist - 150) * 0.03;
+            const fx = (dx / dist) * force, fy = (dy / dist) * force;
+            if (s.id !== draggingNode) { s.vx += fx; s.vy += fy; }
+            if (t.id !== draggingNode) { t.vx -= fx; t.vy -= fy; }
+          }
+        });
+
+        // Center gravity + velocity
+        currentNodes.forEach(node => {
+          if (node.id !== draggingNode) {
+            node.vx += (0 - node.x) * 0.002;
+            node.vy += (0 - node.y) * 0.002;
+            node.vx *= 0.85;
+            node.vy *= 0.85;
+            node.x += node.vx;
+            node.y += node.vy;
+          }
+        });
       }
-
-      // Physics simulation
-      // Repulsion between all nodes
-      for (let i = 0; i < currentNodes.length; i++) {
-        for (let j = i + 1; j < currentNodes.length; j++) {
-          const nodeA = currentNodes[i];
-          const nodeB = currentNodes[j];
-          const dx = nodeB.x - nodeA.x;
-          const dy = nodeB.y - nodeA.y;
-          const distance = Math.sqrt(dx * dx + dy * dy) || 1;
-          const force = 2500 / (distance * distance);
-          
-          const fx = (dx / distance) * force;
-          const fy = (dy / distance) * force;
-          
-          if (nodeA.id !== draggingNode) {
-            nodeA.vx -= fx;
-            nodeA.vy -= fy;
-          }
-          if (nodeB.id !== draggingNode) {
-            nodeB.vx += fx;
-            nodeB.vy += fy;
-          }
-        }
-      }
-
-      // Attraction for linked nodes
-      stableLinks.forEach(link => {
-        const source = currentNodes.find(n => n.id === link.source);
-        const target = currentNodes.find(n => n.id === link.target);
-        
-        if (source && target) {
-          const dx = target.x - source.x;
-          const dy = target.y - source.y;
-          const distance = Math.sqrt(dx * dx + dy * dy) || 1;
-          const force = (distance - 150) * 0.03;
-          
-          const fx = (dx / distance) * force;
-          const fy = (dy / distance) * force;
-          
-          if (source.id !== draggingNode) {
-            source.vx += fx;
-            source.vy += fy;
-          }
-          if (target.id !== draggingNode) {
-            target.vx -= fx;
-            target.vy -= fy;
-          }
-        }
-      });
-
-      // Center gravity
-      const centerX = dimensions.width / 2;
-      const centerY = dimensions.height / 2;
-      
-      currentNodes.forEach(node => {
-        if (node.id !== draggingNode) {
-          node.vx += (centerX - node.x) * 0.002;
-          node.vy += (centerY - node.y) * 0.002;
-          
-          // Apply velocity with damping
-          node.vx *= 0.85;
-          node.vy *= 0.85;
-          node.x += node.vx;
-          node.y += node.vy;
-          
-          // Bounds
-          const padding = 50;
-          node.x = Math.max(padding, Math.min(dimensions.width - padding, node.x));
-          node.y = Math.max(padding, Math.min(dimensions.height - padding, node.y));
-        }
-      });
 
       // Draw
       ctx.clearRect(0, 0, dimensions.width, dimensions.height);
+      ctx.save();
+      ctx.translate(dimensions.width / 2, dimensions.height / 2);
+      ctx.scale(cam.zoom, cam.zoom);
+      ctx.translate(-cam.x, -cam.y);
 
-      // Draw links with thicker lines
+      // Get computed styles for theming
+      const rootStyle = getComputedStyle(document.documentElement);
+      const isDark = document.documentElement.classList.contains('dark');
+
+      const linkColor = isDark ? 'hsl(0, 0%, 50%)' : 'hsl(0, 0%, 60%)';
+      const linkHighlight = isDark ? 'hsl(0, 0%, 75%)' : 'hsl(0, 0%, 20%)';
+      const nodeDefault = isDark ? 'hsl(0, 0%, 60%)' : 'hsl(0, 0%, 45%)';
+      const nodeConnected = isDark ? 'hsl(0, 0%, 75%)' : 'hsl(0, 0%, 25%)';
+      const nodeSelected = isDark ? 'hsl(0, 0%, 90%)' : 'hsl(0, 0%, 0%)';
+      const textColor = isDark ? 'hsl(0, 0%, 90%)' : 'hsl(0, 0%, 0%)';
+      const textBg = isDark ? 'hsla(0, 0%, 10%, 0.85)' : 'hsla(0, 0%, 100%, 0.85)';
+
+      // Links
       stableLinks.forEach(link => {
-        const source = currentNodes.find(n => n.id === link.source);
-        const target = currentNodes.find(n => n.id === link.target);
-        
-        if (source && target) {
-          const isHighlighted = selectedNoteId === source.id || selectedNoteId === target.id;
-          
+        const s = currentNodes.find(n => n.id === link.source);
+        const t = currentNodes.find(n => n.id === link.target);
+        if (s && t) {
+          const hl = selectedNoteId === s.id || selectedNoteId === t.id;
           ctx.beginPath();
-          ctx.strokeStyle = isHighlighted ? 'hsl(0, 0%, 20%)' : 'hsl(0, 0%, 60%)';
-          ctx.lineWidth = isHighlighted ? 3 : 2;
-          ctx.moveTo(source.x, source.y);
-          ctx.lineTo(target.x, target.y);
+          ctx.strokeStyle = hl ? linkHighlight : linkColor;
+          ctx.lineWidth = (hl ? 3 : 2) / cam.zoom;
+          ctx.moveTo(s.x, s.y);
+          ctx.lineTo(t.x, t.y);
           ctx.stroke();
         }
       });
 
-      // Draw nodes
+      // Nodes
+      const baseFontSize = 12 / cam.zoom;
       currentNodes.forEach(node => {
         const isSelected = node.id === selectedNoteId;
         const isHovered = node.id === hoveredNode;
@@ -187,130 +241,138 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
           l => (l.source === selectedNoteId && l.target === node.id) ||
                (l.target === selectedNoteId && l.source === node.id)
         );
-        
-        // Node circle
-        const nodeRadius = isSelected ? 14 : isHovered ? 12 : 10;
-        
+
+        const nodeRadius = ((isSelected ? 14 : isHovered ? 12 : 10)) / Math.sqrt(cam.zoom);
+
         ctx.beginPath();
         ctx.arc(node.x, node.y, nodeRadius, 0, Math.PI * 2);
-        
-        if (isSelected) {
-          ctx.fillStyle = 'hsl(0, 0%, 0%)';
-        } else if (isConnected) {
-          ctx.fillStyle = 'hsl(0, 0%, 25%)';
-        } else {
-          ctx.fillStyle = 'hsl(0, 0%, 45%)';
-        }
-        
+        ctx.fillStyle = isSelected ? nodeSelected : isConnected ? nodeConnected : nodeDefault;
         ctx.fill();
-        
+
         if (isSelected || isHovered) {
-          ctx.strokeStyle = 'hsl(0, 0%, 0%)';
-          ctx.lineWidth = 3;
+          ctx.strokeStyle = nodeSelected;
+          ctx.lineWidth = 3 / cam.zoom;
           ctx.stroke();
         }
 
-        // Label with background for better readability
+        // Label
         const label = node.title.length > 18 ? node.title.slice(0, 18) + '...' : node.title;
-        ctx.font = isSelected ? 'bold 13px Space Grotesk' : '12px Space Grotesk';
-        
+        ctx.font = `${isSelected ? 'bold ' : ''}${baseFontSize}px Space Grotesk`;
         const textWidth = ctx.measureText(label).width;
         const textX = node.x;
-        const textY = node.y + nodeRadius + 8;
-        
-        // Text background
-        ctx.fillStyle = 'hsla(0, 0%, 100%, 0.85)';
-        ctx.fillRect(textX - textWidth / 2 - 4, textY - 2, textWidth + 8, 16);
-        
-        // Text
-        ctx.fillStyle = 'hsl(0, 0%, 0%)';
+        const textY = node.y + nodeRadius + 4 / cam.zoom;
+
+        ctx.fillStyle = textBg;
+        const pad = 3 / cam.zoom;
+        ctx.fillRect(textX - textWidth / 2 - pad, textY - 1 / cam.zoom, textWidth + pad * 2, baseFontSize + 4 / cam.zoom);
+
+        ctx.fillStyle = textColor;
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         ctx.fillText(label, textX, textY);
       });
 
+      ctx.restore();
+
       animationRef.current = requestAnimationFrame(simulate);
     };
 
     animationRef.current = requestAnimationFrame(simulate);
-    
-    return () => {
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
-    };
+    return () => { if (animationRef.current) cancelAnimationFrame(animationRef.current); };
   }, [stableLinks, draggingNode, dimensions, selectedNoteId, hoveredNode]);
 
-  const getNodeAtPosition = useCallback((x: number, y: number): GraphNode | null => {
+  const getNodeAtPosition = useCallback((sx: number, sy: number): GraphNode | null => {
+    const world = screenToWorld(sx, sy);
+    const cam = cameraRef.current;
+    const hitRadius = ('ontouchstart' in window ? 30 : 20) / cam.zoom;
     const nodes = nodesRef.current;
-    // Larger hit area for touch devices
-    const hitRadius = 'ontouchstart' in window ? 900 : 400;
     for (let i = nodes.length - 1; i >= 0; i--) {
-      const node = nodes[i];
-      const dx = x - node.x;
-      const dy = y - node.y;
-      if (dx * dx + dy * dy < hitRadius) {
-        return node;
-      }
+      const n = nodes[i];
+      const dx = world.x - n.x, dy = world.y - n.y;
+      if (dx * dx + dy * dy < hitRadius * hitRadius) return n;
     }
     return null;
-  }, []);
+  }, [screenToWorld]);
 
   const getEventPosition = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     const rect = canvasRef.current?.getBoundingClientRect();
     if (!rect) return null;
-    
     if ('touches' in e) {
-      if (e.touches.length > 0) {
-        return {
-          x: e.touches[0].clientX - rect.left,
-          y: e.touches[0].clientY - rect.top,
-        };
-      }
-      if (e.changedTouches.length > 0) {
-        return {
-          x: e.changedTouches[0].clientX - rect.left,
-          y: e.changedTouches[0].clientY - rect.top,
-        };
-      }
-      return null;
+      const touch = e.touches[0] || e.changedTouches[0];
+      if (!touch) return null;
+      return { x: touch.clientX - rect.left, y: touch.clientY - rect.top };
     }
-    
-    return {
-      x: e.clientX - rect.left,
-      y: e.clientY - rect.top,
-    };
+    return { x: e.clientX - rect.left, y: e.clientY - rect.top };
   }, []);
 
+  // Wheel zoom
+  const handleWheel = useCallback((e: React.WheelEvent) => {
+    e.preventDefault();
+    applyZoom(e.deltaY < 0 ? 1 : -1, e.nativeEvent.offsetX, e.nativeEvent.offsetY);
+  }, [applyZoom]);
+
   const handlePointerDown = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    // Pinch zoom
+    if ('touches' in e && e.touches.length === 2) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      pinchStartRef.current = { dist: Math.sqrt(dx * dx + dy * dy), zoom: cameraRef.current.zoom };
+      return;
+    }
+
     const pos = getEventPosition(e);
     if (!pos) return;
-    
+
     const node = getNodeAtPosition(pos.x, pos.y);
     if (node) {
       setDraggingNode(node.id);
+    } else {
+      // Start panning
+      setIsPanning(true);
+      panStartRef.current = { x: pos.x, y: pos.y, camX: cameraRef.current.x, camY: cameraRef.current.y };
     }
   }, [getEventPosition, getNodeAtPosition]);
 
   const handlePointerMove = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    // Pinch
+    if ('touches' in e && e.touches.length === 2 && pinchStartRef.current) {
+      const dx = e.touches[0].clientX - e.touches[1].clientX;
+      const dy = e.touches[0].clientY - e.touches[1].clientY;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const newZoom = Math.max(0.1, Math.min(5, pinchStartRef.current.zoom * (dist / pinchStartRef.current.dist)));
+      cameraRef.current.zoom = newZoom;
+      forceRender(n => n + 1);
+      return;
+    }
+
     const pos = getEventPosition(e);
     if (!pos) return;
-    
+
     if (draggingNode) {
+      const world = screenToWorld(pos.x, pos.y);
       const node = nodesRef.current.find(n => n.id === draggingNode);
       if (node) {
-        node.x = pos.x;
-        node.y = pos.y;
+        node.x = world.x;
+        node.y = world.y;
         node.vx = 0;
         node.vy = 0;
       }
+    } else if (isPanning) {
+      const cam = cameraRef.current;
+      const dx = (pos.x - panStartRef.current.x) / cam.zoom;
+      const dy = (pos.y - panStartRef.current.y) / cam.zoom;
+      cam.x = panStartRef.current.camX - dx;
+      cam.y = panStartRef.current.camY - dy;
+      forceRender(n => n + 1);
     } else if (!('touches' in e)) {
       const node = getNodeAtPosition(pos.x, pos.y);
       setHoveredNode(node?.id || null);
     }
-  }, [draggingNode, getEventPosition, getNodeAtPosition]);
+  }, [draggingNode, isPanning, getEventPosition, getNodeAtPosition, screenToWorld]);
 
   const handlePointerUp = useCallback((e: React.MouseEvent | React.TouchEvent) => {
+    pinchStartRef.current = null;
+
     if (draggingNode) {
       const pos = getEventPosition(e);
       if (pos) {
@@ -321,22 +383,20 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
       }
       setDraggingNode(null);
     }
+    setIsPanning(false);
   }, [draggingNode, getEventPosition, getNodeAtPosition, onSelectNote]);
 
   const handleClick = useCallback((e: React.MouseEvent) => {
-    if (draggingNode) return;
-    
+    if (draggingNode || isPanning) return;
     const pos = getEventPosition(e);
     if (!pos) return;
-    
     const node = getNodeAtPosition(pos.x, pos.y);
-    if (node) {
-      onSelectNote(node.id);
-    }
-  }, [draggingNode, getEventPosition, getNodeAtPosition, onSelectNote]);
+    if (node) onSelectNote(node.id);
+  }, [draggingNode, isPanning, getEventPosition, getNodeAtPosition, onSelectNote]);
 
   const handlePointerLeave = useCallback(() => {
     setDraggingNode(null);
+    setIsPanning(false);
     setHoveredNode(null);
   }, []);
 
@@ -349,12 +409,13 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
   }
 
   return (
-    <div ref={containerRef} className="w-full h-full min-h-[250px] sm:min-h-[300px] relative touch-none">
+    <div ref={containerRef} className="w-full h-full relative touch-none overflow-hidden">
       <canvas
         ref={canvasRef}
         width={dimensions.width}
         height={dimensions.height}
-        className="cursor-pointer touch-none"
+        className="cursor-grab active:cursor-grabbing touch-none block"
+        style={{ width: '100%', height: '100%' }}
         onMouseDown={handlePointerDown}
         onMouseMove={handlePointerMove}
         onMouseUp={handlePointerUp}
@@ -363,9 +424,39 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
         onTouchStart={handlePointerDown}
         onTouchMove={handlePointerMove}
         onTouchEnd={handlePointerUp}
+        onWheel={handleWheel}
       />
-      {/* Debug info */}
-      <div className="absolute bottom-2 left-2 text-xs text-muted-foreground bg-background/80 px-2 py-1 border border-border">
+
+      {/* Zoom controls */}
+      <div className="absolute top-2 right-2 flex flex-col gap-1">
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 w-8 p-0 border-2"
+          onClick={() => applyZoom(1, dimensions.width / 2, dimensions.height / 2)}
+        >
+          <ZoomIn className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 w-8 p-0 border-2"
+          onClick={() => applyZoom(-1, dimensions.width / 2, dimensions.height / 2)}
+        >
+          <ZoomOut className="w-4 h-4" />
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          className="h-8 w-8 p-0 border-2"
+          onClick={fitToView}
+        >
+          <Maximize className="w-4 h-4" />
+        </Button>
+      </div>
+
+      {/* Info */}
+      <div className="absolute bottom-2 left-2 text-xs text-muted-foreground bg-background/80 px-2 py-1 border border-border rounded-sm">
         {notes.length} notas • {stableLinks.length} conexões
       </div>
     </div>
