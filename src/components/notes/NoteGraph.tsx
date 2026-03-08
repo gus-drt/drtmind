@@ -43,6 +43,14 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
     };
   }, [dimensions]);
 
+  // Detect index note
+  const indexNoteId = useMemo(() => {
+    const idx = notes.find(n =>
+      /^[ií]ndice$/i.test(n.title.trim()) || /^index$/i.test(n.title.trim())
+    );
+    return idx?.id ?? null;
+  }, [notes]);
+
   // Initialize/update nodes
   useEffect(() => {
     const radius = Math.min(dimensions.width, dimensions.height) * 0.35;
@@ -50,13 +58,14 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
 
     nodesRef.current = notes.map((note, i) => {
       const existingNode = existingNodes.find(n => n.id === note.id);
+      const isIndex = note.id === indexNoteId;
       const angle = (i / Math.max(notes.length, 1)) * Math.PI * 2;
 
       return {
         id: note.id,
         title: note.title,
-        x: existingNode?.x ?? Math.cos(angle) * radius + (Math.random() - 0.5) * 50,
-        y: existingNode?.y ?? Math.sin(angle) * radius + (Math.random() - 0.5) * 50,
+        x: isIndex ? 0 : (existingNode?.x ?? Math.cos(angle) * radius + (Math.random() - 0.5) * 50),
+        y: isIndex ? 0 : (existingNode?.y ?? Math.sin(angle) * radius + (Math.random() - 0.5) * 50),
         vx: existingNode?.vx ?? 0,
         vy: existingNode?.vy ?? 0,
       };
@@ -187,6 +196,14 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
 
         // Center gravity + velocity
         currentNodes.forEach(node => {
+          // Index node is always pinned at center
+          if (node.id === indexNoteId && node.id !== draggingNode) {
+            node.x = 0;
+            node.y = 0;
+            node.vx = 0;
+            node.vy = 0;
+            return;
+          }
           if (node.id !== draggingNode) {
             node.vx += (0 - node.x) * 0.002;
             node.vy += (0 - node.y) * 0.002;
@@ -279,7 +296,7 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
 
     animationRef.current = requestAnimationFrame(simulate);
     return () => { if (animationRef.current) cancelAnimationFrame(animationRef.current); };
-  }, [stableLinks, draggingNode, dimensions, selectedNoteId, hoveredNode]);
+  }, [stableLinks, draggingNode, dimensions, selectedNoteId, hoveredNode, indexNoteId]);
 
   const getNodeAtPosition = useCallback((sx: number, sy: number): GraphNode | null => {
     const world = screenToWorld(sx, sy);

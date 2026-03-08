@@ -60,6 +60,16 @@ export const useNotes = () => {
 
       setNotes(notesWithLinks);
 
+      // Auto-select Index/Índice note if no note is currently selected
+      if (!selectedNoteId) {
+        const indexNote = notesWithLinks.find(n =>
+          /^[ií]ndice$/i.test(n.title.trim()) || /^index$/i.test(n.title.trim())
+        );
+        if (indexNote) {
+          setSelectedNoteId(indexNote.id);
+        }
+      }
+
       // Create welcome note if no notes exist
       if (notesWithLinks.length === 0) {
         await createWelcomeNote();
