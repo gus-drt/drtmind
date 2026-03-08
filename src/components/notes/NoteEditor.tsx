@@ -12,9 +12,14 @@ interface NoteEditorProps {
   onDelete: (id: string) => void;
   onLinkClick: (title: string) => void;
   onBackToGraph?: () => void;
+  allTags: Tag[];
+  noteTags: Tag[];
+  onAddTag: (tagId: string) => void;
+  onRemoveTag: (tagId: string) => void;
+  onCreateTag: (name: string, color: string) => Promise<Tag | null>;
 }
 
-export const NoteEditor = ({ note, onUpdate, onDelete, onLinkClick, onBackToGraph }: NoteEditorProps) => {
+export const NoteEditor = ({ note, onUpdate, onDelete, onLinkClick, onBackToGraph, allTags, noteTags, onAddTag, onRemoveTag, onCreateTag }: NoteEditorProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [localTitle, setLocalTitle] = useState(note.title);
   const [localContent, setLocalContent] = useState(note.content);
