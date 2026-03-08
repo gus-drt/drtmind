@@ -22,15 +22,21 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
   const nodesRef = useRef<GraphNode[]>([]);
   const [dimensions, setDimensions] = useState({ width: 600, height: 400 });
   const animationRef = useRef<number>();
-  const [draggingNode, setDraggingNode] = useState<string | null>(null);
+  const draggingNodeRef = useRef<string | null>(null);
   const [hoveredNode, setHoveredNode] = useState<string | null>(null);
   const [, forceRender] = useState(0);
 
   // Camera state for pan/zoom
   const cameraRef = useRef<Camera>({ x: 0, y: 0, zoom: 1 });
-  const [isPanning, setIsPanning] = useState(false);
+  const isPanningRef = useRef(false);
   const panStartRef = useRef({ x: 0, y: 0, camX: 0, camY: 0 });
   const pinchStartRef = useRef<{ dist: number; zoom: number } | null>(null);
+
+  // Track drag distance to distinguish click from drag
+  const dragStartPosRef = useRef<{ x: number; y: number } | null>(null);
+  const didDragRef = useRef(false);
+
+  const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
 
   const stableLinks = useMemo(() => links, [JSON.stringify(links)]);
 
@@ -53,7 +59,7 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
 
   // Initialize/update nodes
   useEffect(() => {
-    const radius = Math.min(dimensions.width, dimensions.height) * 0.35;
+    const radius = Math.min(dimensions.width, dimensions.height) * 0.3;
     const existingNodes = nodesRef.current;
 
     nodesRef.current = notes.map((note, i) => {
@@ -64,15 +70,15 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
       return {
         id: note.id,
         title: note.title,
-        x: isIndex ? 0 : (existingNode?.x ?? Math.cos(angle) * radius + (Math.random() - 0.5) * 50),
-        y: isIndex ? 0 : (existingNode?.y ?? Math.sin(angle) * radius + (Math.random() - 0.5) * 50),
+        x: isIndex ? 0 : (existingNode?.x ?? Math.cos(angle) * radius + (Math.random() - 0.5) * 40),
+        y: isIndex ? 0 : (existingNode?.y ?? Math.sin(angle) * radius + (Math.random() - 0.5) * 40),
         vx: existingNode?.vx ?? 0,
         vy: existingNode?.vy ?? 0,
       };
     });
 
     forceRender(n => n + 1);
-  }, [notes, dimensions]);
+  }, [notes, dimensions, indexNoteId]);
 
   // Handle resize with ResizeObserver
   useEffect(() => {
@@ -105,28 +111,28 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
       maxY = Math.max(maxY, n.y);
     });
 
-    const padding = 80;
+    const padding = 100;
     const rangeX = maxX - minX + padding * 2;
     const rangeY = maxY - minY + padding * 2;
     const zoom = Math.min(
       dimensions.width / rangeX,
       dimensions.height / rangeY,
-      2
+      2.5
     );
 
     cameraRef.current = {
       x: (minX + maxX) / 2,
       y: (minY + maxY) / 2,
-      zoom: Math.max(0.2, zoom),
+      zoom: Math.max(0.15, zoom),
     };
     forceRender(n => n + 1);
   }, [dimensions]);
 
-  // Auto-fit on first load or when notes count changes significantly
+  // Auto-fit on first load
   const prevNoteCountRef = useRef(0);
   useEffect(() => {
-    if (notes.length > 0 && (prevNoteCountRef.current === 0 || Math.abs(notes.length - prevNoteCountRef.current) > 2)) {
-      setTimeout(fitToView, 300);
+    if (notes.length > 0 && prevNoteCountRef.current === 0) {
+      setTimeout(fitToView, 350);
     }
     prevNoteCountRef.current = notes.length;
   }, [notes.length, fitToView]);
@@ -134,11 +140,10 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
   // Zoom helper
   const applyZoom = useCallback((delta: number, centerX?: number, centerY?: number) => {
     const cam = cameraRef.current;
-    const factor = delta > 0 ? 1.15 : 1 / 1.15;
+    const factor = delta > 0 ? 1.12 : 1 / 1.12;
     const newZoom = Math.max(0.1, Math.min(5, cam.zoom * factor));
 
     if (centerX !== undefined && centerY !== undefined) {
-      // Zoom toward pointer
       const worldBefore = {
         x: (centerX - dimensions.width / 2) / cam.zoom + cam.x,
         y: (centerY - dimensions.height / 2) / cam.zoom + cam.y,
@@ -165,6 +170,7 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
     const simulate = () => {
       const currentNodes = nodesRef.current;
       const cam = cameraRef.current;
+      const dragging = draggingNodeRef.current;
 
       if (currentNodes.length > 0) {
         // Repulsion
@@ -172,11 +178,12 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
           for (let j = i + 1; j < currentNodes.length; j++) {
             const a = currentNodes[i], b = currentNodes[j];
             const dx = b.x - a.x, dy = b.y - a.y;
-            const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-            const force = 2500 / (dist * dist);
+            const distSq = dx * dx + dy * dy;
+            const dist = Math.sqrt(distSq) || 1;
+            const force = 3000 / (distSq + 100);
             const fx = (dx / dist) * force, fy = (dy / dist) * force;
-            if (a.id !== draggingNode) { a.vx -= fx; a.vy -= fy; }
-            if (b.id !== draggingNode) { b.vx += fx; b.vy += fy; }
+            if (a.id !== dragging) { a.vx -= fx; a.vy -= fy; }
+            if (b.id !== dragging) { b.vx += fx; b.vy += fy; }
           }
         }
 
@@ -187,54 +194,75 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
           if (s && t) {
             const dx = t.x - s.x, dy = t.y - s.y;
             const dist = Math.sqrt(dx * dx + dy * dy) || 1;
-            const force = (dist - 150) * 0.03;
+            const force = (dist - 120) * 0.025;
             const fx = (dx / dist) * force, fy = (dy / dist) * force;
-            if (s.id !== draggingNode) { s.vx += fx; s.vy += fy; }
-            if (t.id !== draggingNode) { t.vx -= fx; t.vy -= fy; }
+            if (s.id !== dragging) { s.vx += fx; s.vy += fy; }
+            if (t.id !== dragging) { t.vx -= fx; t.vy -= fy; }
           }
         });
 
         // Center gravity + velocity
         currentNodes.forEach(node => {
-          // Index node is always pinned at center
-          if (node.id === indexNoteId && node.id !== draggingNode) {
-            node.x = 0;
-            node.y = 0;
-            node.vx = 0;
-            node.vy = 0;
+          if (node.id === indexNoteId && node.id !== dragging) {
+            node.x = 0; node.y = 0; node.vx = 0; node.vy = 0;
             return;
           }
-          if (node.id !== draggingNode) {
-            node.vx += (0 - node.x) * 0.002;
-            node.vy += (0 - node.y) * 0.002;
-            node.vx *= 0.85;
-            node.vy *= 0.85;
+          if (node.id !== dragging) {
+            node.vx += (0 - node.x) * 0.001;
+            node.vy += (0 - node.y) * 0.001;
+            node.vx *= 0.88;
+            node.vy *= 0.88;
             node.x += node.vx;
             node.y += node.vy;
           }
         });
       }
 
-      // Draw
-      ctx.clearRect(0, 0, dimensions.width, dimensions.height);
+      // HiDPI draw
+      const w = dimensions.width;
+      const h = dimensions.height;
+      canvas.width = w * dpr;
+      canvas.height = h * dpr;
+      canvas.style.width = w + 'px';
+      canvas.style.height = h + 'px';
+      ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
+
+      // Background
+      const isDark = document.documentElement.classList.contains('dark');
+      ctx.fillStyle = isDark ? 'hsl(240, 5%, 8%)' : 'hsl(0, 0%, 98%)';
+      ctx.fillRect(0, 0, w, h);
+
+      // Subtle grid
       ctx.save();
-      ctx.translate(dimensions.width / 2, dimensions.height / 2);
+      ctx.translate(w / 2, h / 2);
       ctx.scale(cam.zoom, cam.zoom);
       ctx.translate(-cam.x, -cam.y);
 
-      // Get computed styles for theming
-      const rootStyle = getComputedStyle(document.documentElement);
-      const isDark = document.documentElement.classList.contains('dark');
+      const gridSize = 60;
+      const gridAlpha = isDark ? 0.06 : 0.08;
+      ctx.strokeStyle = isDark ? `rgba(255,255,255,${gridAlpha})` : `rgba(0,0,0,${gridAlpha})`;
+      ctx.lineWidth = 1 / cam.zoom;
 
-      const linkColor = isDark ? 'hsl(0, 0%, 50%)' : 'hsl(0, 0%, 60%)';
-      const linkHighlight = isDark ? 'hsl(0, 0%, 75%)' : 'hsl(0, 0%, 20%)';
-      const nodeDefault = isDark ? 'hsl(0, 0%, 60%)' : 'hsl(0, 0%, 45%)';
-      const nodeConnected = isDark ? 'hsl(0, 0%, 75%)' : 'hsl(0, 0%, 25%)';
-      const nodeSelected = isDark ? 'hsl(0, 0%, 90%)' : 'hsl(0, 0%, 0%)';
-      const textColor = isDark ? 'hsl(0, 0%, 90%)' : 'hsl(0, 0%, 0%)';
-      const textBg = isDark ? 'hsla(0, 0%, 10%, 0.85)' : 'hsla(0, 0%, 100%, 0.85)';
+      const viewLeft = cam.x - w / 2 / cam.zoom;
+      const viewRight = cam.x + w / 2 / cam.zoom;
+      const viewTop = cam.y - h / 2 / cam.zoom;
+      const viewBottom = cam.y + h / 2 / cam.zoom;
 
-      // Links
+      const startX = Math.floor(viewLeft / gridSize) * gridSize;
+      const startY = Math.floor(viewTop / gridSize) * gridSize;
+
+      for (let x = startX; x <= viewRight; x += gridSize) {
+        ctx.beginPath(); ctx.moveTo(x, viewTop); ctx.lineTo(x, viewBottom); ctx.stroke();
+      }
+      for (let y = startY; y <= viewBottom; y += gridSize) {
+        ctx.beginPath(); ctx.moveTo(viewLeft, y); ctx.lineTo(viewRight, y); ctx.stroke();
+      }
+
+      // Colors
+      const linkColor = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)';
+      const linkHighlight = isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.35)';
+
+      // Links with curves
       stableLinks.forEach(link => {
         const s = currentNodes.find(n => n.id === link.source);
         const t = currentNodes.find(n => n.id === link.target);
@@ -242,48 +270,120 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
           const hl = selectedNoteId === s.id || selectedNoteId === t.id;
           ctx.beginPath();
           ctx.strokeStyle = hl ? linkHighlight : linkColor;
-          ctx.lineWidth = (hl ? 3 : 2) / cam.zoom;
+          ctx.lineWidth = (hl ? 2.5 : 1.5) / cam.zoom;
           ctx.moveTo(s.x, s.y);
-          ctx.lineTo(t.x, t.y);
+          // Slight curve for visual interest
+          const mx = (s.x + t.x) / 2;
+          const my = (s.y + t.y) / 2;
+          const dx = t.x - s.x;
+          const dy = t.y - s.y;
+          const offset = Math.min(15, Math.sqrt(dx*dx + dy*dy) * 0.05);
+          ctx.quadraticCurveTo(mx - dy * offset / (Math.sqrt(dx*dx+dy*dy) || 1), my + dx * offset / (Math.sqrt(dx*dx+dy*dy) || 1), t.x, t.y);
           ctx.stroke();
         }
       });
 
       // Nodes
-      const baseFontSize = 12 / cam.zoom;
+      const baseFontSize = 11 / cam.zoom;
+      const isIndex = (id: string) => id === indexNoteId;
+
       currentNodes.forEach(node => {
         const isSelected = node.id === selectedNoteId;
         const isHovered = node.id === hoveredNode;
+        const isIdx = isIndex(node.id);
         const isConnected = stableLinks.some(
           l => (l.source === selectedNoteId && l.target === node.id) ||
                (l.target === selectedNoteId && l.source === node.id)
         );
 
-        const nodeRadius = ((isSelected ? 14 : isHovered ? 12 : 10)) / Math.sqrt(cam.zoom);
+        let baseRadius = isIdx ? 12 : 8;
+        if (isSelected) baseRadius = isIdx ? 14 : 11;
+        else if (isHovered) baseRadius = isIdx ? 13 : 10;
+        const nodeRadius = baseRadius / Math.sqrt(cam.zoom);
 
+        // Glow for selected/hovered
+        if (isSelected || isHovered) {
+          const glowColor = isDark ? 'rgba(255,255,255,0.15)' : 'rgba(0,0,0,0.08)';
+          ctx.beginPath();
+          ctx.arc(node.x, node.y, nodeRadius * 2, 0, Math.PI * 2);
+          ctx.fillStyle = glowColor;
+          ctx.fill();
+        }
+
+        // Node circle
         ctx.beginPath();
         ctx.arc(node.x, node.y, nodeRadius, 0, Math.PI * 2);
-        ctx.fillStyle = isSelected ? nodeSelected : isConnected ? nodeConnected : nodeDefault;
+
+        // Gradient fill
+        const grad = ctx.createRadialGradient(
+          node.x - nodeRadius * 0.3, node.y - nodeRadius * 0.3, 0,
+          node.x, node.y, nodeRadius
+        );
+
+        if (isIdx) {
+          grad.addColorStop(0, isDark ? 'hsl(260, 60%, 70%)' : 'hsl(260, 50%, 55%)');
+          grad.addColorStop(1, isDark ? 'hsl(260, 40%, 50%)' : 'hsl(260, 40%, 40%)');
+        } else if (isSelected) {
+          grad.addColorStop(0, isDark ? 'hsl(0, 0%, 95%)' : 'hsl(0, 0%, 15%)');
+          grad.addColorStop(1, isDark ? 'hsl(0, 0%, 75%)' : 'hsl(0, 0%, 30%)');
+        } else if (isConnected) {
+          grad.addColorStop(0, isDark ? 'hsl(0, 0%, 75%)' : 'hsl(0, 0%, 30%)');
+          grad.addColorStop(1, isDark ? 'hsl(0, 0%, 55%)' : 'hsl(0, 0%, 45%)');
+        } else {
+          grad.addColorStop(0, isDark ? 'hsl(0, 0%, 55%)' : 'hsl(0, 0%, 55%)');
+          grad.addColorStop(1, isDark ? 'hsl(0, 0%, 40%)' : 'hsl(0, 0%, 65%)');
+        }
+
+        ctx.fillStyle = grad;
         ctx.fill();
 
-        if (isSelected || isHovered) {
-          ctx.strokeStyle = nodeSelected;
-          ctx.lineWidth = 3 / cam.zoom;
+        // Ring
+        if (isSelected || isHovered || isIdx) {
+          ctx.strokeStyle = isIdx
+            ? (isDark ? 'hsl(260, 50%, 65%)' : 'hsl(260, 40%, 50%)')
+            : (isDark ? 'rgba(255,255,255,0.6)' : 'rgba(0,0,0,0.5)');
+          ctx.lineWidth = (isIdx ? 2.5 : 2) / cam.zoom;
           ctx.stroke();
         }
 
         // Label
-        const label = node.title.length > 18 ? node.title.slice(0, 18) + '...' : node.title;
-        ctx.font = `${isSelected ? 'bold ' : ''}${baseFontSize}px Space Grotesk`;
+        const label = node.title.length > 20 ? node.title.slice(0, 20) + '…' : node.title;
+        const fontSize = (isSelected || isIdx ? baseFontSize * 1.05 : baseFontSize);
+        ctx.font = `${isSelected || isIdx ? '600 ' : '400 '}${fontSize}px -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif`;
         const textWidth = ctx.measureText(label).width;
         const textX = node.x;
-        const textY = node.y + nodeRadius + 4 / cam.zoom;
+        const textY = node.y + nodeRadius + 6 / cam.zoom;
 
-        ctx.fillStyle = textBg;
-        const pad = 3 / cam.zoom;
-        ctx.fillRect(textX - textWidth / 2 - pad, textY - 1 / cam.zoom, textWidth + pad * 2, baseFontSize + 4 / cam.zoom);
+        // Label bg pill
+        const pad = 4 / cam.zoom;
+        const pillH = fontSize + pad * 2;
+        const pillW = textWidth + pad * 2.5;
+        const pillR = 3 / cam.zoom;
 
-        ctx.fillStyle = textColor;
+        ctx.fillStyle = isDark ? 'rgba(15,15,20,0.85)' : 'rgba(255,255,255,0.9)';
+        ctx.beginPath();
+        const px = textX - pillW / 2;
+        const py = textY - pad;
+        ctx.moveTo(px + pillR, py);
+        ctx.lineTo(px + pillW - pillR, py);
+        ctx.arcTo(px + pillW, py, px + pillW, py + pillR, pillR);
+        ctx.lineTo(px + pillW, py + pillH - pillR);
+        ctx.arcTo(px + pillW, py + pillH, px + pillW - pillR, py + pillH, pillR);
+        ctx.lineTo(px + pillR, py + pillH);
+        ctx.arcTo(px, py + pillH, px, py + pillH - pillR, pillR);
+        ctx.lineTo(px, py + pillR);
+        ctx.arcTo(px, py, px + pillR, py, pillR);
+        ctx.closePath();
+        ctx.fill();
+
+        // Label border
+        if (isIdx) {
+          ctx.strokeStyle = isDark ? 'rgba(160,120,255,0.3)' : 'rgba(100,60,200,0.2)';
+          ctx.lineWidth = 1 / cam.zoom;
+          ctx.stroke();
+        }
+
+        ctx.fillStyle = isDark ? 'rgba(255,255,255,0.9)' : 'rgba(0,0,0,0.85)';
         ctx.textAlign = 'center';
         ctx.textBaseline = 'top';
         ctx.fillText(label, textX, textY);
@@ -296,12 +396,12 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
 
     animationRef.current = requestAnimationFrame(simulate);
     return () => { if (animationRef.current) cancelAnimationFrame(animationRef.current); };
-  }, [stableLinks, draggingNode, dimensions, selectedNoteId, hoveredNode, indexNoteId]);
+  }, [stableLinks, dimensions, selectedNoteId, hoveredNode, indexNoteId, dpr]);
 
   const getNodeAtPosition = useCallback((sx: number, sy: number): GraphNode | null => {
     const world = screenToWorld(sx, sy);
     const cam = cameraRef.current;
-    const hitRadius = ('ontouchstart' in window ? 30 : 20) / cam.zoom;
+    const hitRadius = ('ontouchstart' in window ? 35 : 22) / cam.zoom;
     const nodes = nodesRef.current;
     for (let i = nodes.length - 1; i >= 0; i--) {
       const n = nodes[i];
@@ -329,7 +429,6 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
   }, [applyZoom]);
 
   const handlePointerDown = useCallback((e: React.MouseEvent | React.TouchEvent) => {
-    // Pinch zoom
     if ('touches' in e && e.touches.length === 2) {
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
@@ -340,18 +439,19 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
     const pos = getEventPosition(e);
     if (!pos) return;
 
+    dragStartPosRef.current = { x: pos.x, y: pos.y };
+    didDragRef.current = false;
+
     const node = getNodeAtPosition(pos.x, pos.y);
     if (node) {
-      setDraggingNode(node.id);
+      draggingNodeRef.current = node.id;
     } else {
-      // Start panning
-      setIsPanning(true);
+      isPanningRef.current = true;
       panStartRef.current = { x: pos.x, y: pos.y, camX: cameraRef.current.x, camY: cameraRef.current.y };
     }
   }, [getEventPosition, getNodeAtPosition]);
 
   const handlePointerMove = useCallback((e: React.MouseEvent | React.TouchEvent) => {
-    // Pinch
     if ('touches' in e && e.touches.length === 2 && pinchStartRef.current) {
       const dx = e.touches[0].clientX - e.touches[1].clientX;
       const dy = e.touches[0].clientY - e.touches[1].clientY;
@@ -365,16 +465,24 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
     const pos = getEventPosition(e);
     if (!pos) return;
 
-    if (draggingNode) {
-      const world = screenToWorld(pos.x, pos.y);
-      const node = nodesRef.current.find(n => n.id === draggingNode);
-      if (node) {
-        node.x = world.x;
-        node.y = world.y;
-        node.vx = 0;
-        node.vy = 0;
+    // Check if we've moved enough to count as drag
+    if (dragStartPosRef.current) {
+      const dx = pos.x - dragStartPosRef.current.x;
+      const dy = pos.y - dragStartPosRef.current.y;
+      if (dx * dx + dy * dy > 25) { // 5px threshold
+        didDragRef.current = true;
       }
-    } else if (isPanning) {
+    }
+
+    const dragging = draggingNodeRef.current;
+    if (dragging) {
+      const world = screenToWorld(pos.x, pos.y);
+      const node = nodesRef.current.find(n => n.id === dragging);
+      if (node) {
+        node.x = world.x; node.y = world.y;
+        node.vx = 0; node.vy = 0;
+      }
+    } else if (isPanningRef.current) {
       const cam = cameraRef.current;
       const dx = (pos.x - panStartRef.current.x) / cam.zoom;
       const dy = (pos.y - panStartRef.current.y) / cam.zoom;
@@ -385,36 +493,32 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
       const node = getNodeAtPosition(pos.x, pos.y);
       setHoveredNode(node?.id || null);
     }
-  }, [draggingNode, isPanning, getEventPosition, getNodeAtPosition, screenToWorld]);
+  }, [getEventPosition, getNodeAtPosition, screenToWorld]);
 
   const handlePointerUp = useCallback((e: React.MouseEvent | React.TouchEvent) => {
     pinchStartRef.current = null;
 
-    if (draggingNode) {
-      const pos = getEventPosition(e);
-      if (pos) {
-        const node = getNodeAtPosition(pos.x, pos.y);
-        if (node && node.id === draggingNode) {
-          onSelectNote(node.id);
-        }
-      }
-      setDraggingNode(null);
-    }
-    setIsPanning(false);
-  }, [draggingNode, getEventPosition, getNodeAtPosition, onSelectNote]);
-
-  const handleClick = useCallback((e: React.MouseEvent) => {
-    if (draggingNode || isPanning) return;
     const pos = getEventPosition(e);
-    if (!pos) return;
-    const node = getNodeAtPosition(pos.x, pos.y);
-    if (node) onSelectNote(node.id);
-  }, [draggingNode, isPanning, getEventPosition, getNodeAtPosition, onSelectNote]);
+    const dragging = draggingNodeRef.current;
+
+    // If we didn't drag far, treat as a click
+    if (!didDragRef.current && pos) {
+      const node = getNodeAtPosition(pos.x, pos.y);
+      if (node) {
+        onSelectNote(node.id);
+      }
+    }
+
+    draggingNodeRef.current = null;
+    isPanningRef.current = false;
+    dragStartPosRef.current = null;
+  }, [getEventPosition, getNodeAtPosition, onSelectNote]);
 
   const handlePointerLeave = useCallback(() => {
-    setDraggingNode(null);
-    setIsPanning(false);
+    draggingNodeRef.current = null;
+    isPanningRef.current = false;
     setHoveredNode(null);
+    dragStartPosRef.current = null;
   }, []);
 
   if (notes.length === 0) {
@@ -429,15 +533,11 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
     <div ref={containerRef} className="w-full h-full relative touch-none overflow-hidden">
       <canvas
         ref={canvasRef}
-        width={dimensions.width}
-        height={dimensions.height}
-        className="cursor-grab active:cursor-grabbing touch-none block"
-        style={{ width: '100%', height: '100%' }}
+        className="cursor-grab active:cursor-grabbing touch-none block w-full h-full"
         onMouseDown={handlePointerDown}
         onMouseMove={handlePointerMove}
         onMouseUp={handlePointerUp}
         onMouseLeave={handlePointerLeave}
-        onClick={handleClick}
         onTouchStart={handlePointerDown}
         onTouchMove={handlePointerMove}
         onTouchEnd={handlePointerUp}
@@ -445,11 +545,11 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
       />
 
       {/* Zoom controls */}
-      <div className="absolute top-2 right-2 flex flex-col gap-1">
+      <div className="absolute top-3 right-3 flex flex-col gap-1.5">
         <Button
           variant="outline"
           size="sm"
-          className="h-8 w-8 p-0 border-2"
+          className="h-9 w-9 p-0 border backdrop-blur-sm bg-background/80 shadow-sm"
           onClick={() => applyZoom(1, dimensions.width / 2, dimensions.height / 2)}
         >
           <ZoomIn className="w-4 h-4" />
@@ -457,7 +557,7 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
         <Button
           variant="outline"
           size="sm"
-          className="h-8 w-8 p-0 border-2"
+          className="h-9 w-9 p-0 border backdrop-blur-sm bg-background/80 shadow-sm"
           onClick={() => applyZoom(-1, dimensions.width / 2, dimensions.height / 2)}
         >
           <ZoomOut className="w-4 h-4" />
@@ -465,15 +565,15 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
         <Button
           variant="outline"
           size="sm"
-          className="h-8 w-8 p-0 border-2"
+          className="h-9 w-9 p-0 border backdrop-blur-sm bg-background/80 shadow-sm"
           onClick={fitToView}
         >
           <Maximize className="w-4 h-4" />
         </Button>
       </div>
 
-      {/* Info */}
-      <div className="absolute bottom-2 left-2 text-xs text-muted-foreground bg-background/80 px-2 py-1 border border-border rounded-sm">
+      {/* Info badge */}
+      <div className="absolute bottom-3 left-3 text-xs text-muted-foreground bg-background/80 backdrop-blur-sm px-2.5 py-1.5 border rounded-md shadow-sm">
         {notes.length} notas • {stableLinks.length} conexões
       </div>
     </div>
