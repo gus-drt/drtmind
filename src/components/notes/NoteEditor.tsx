@@ -69,14 +69,27 @@ export const NoteEditor = ({ note, onUpdate, onDelete, onLinkClick, onBackToGrap
     <div className="flex flex-col h-full">
       {/* Header */}
       <div className="flex items-center justify-between p-2 sm:p-4 border-b-2 border-border gap-2">
-        <input
-          ref={titleInputRef}
-          type="text"
-          value={localTitle}
-          onChange={handleTitleChange}
-          className="text-base sm:text-xl font-bold bg-transparent border-none outline-none focus:ring-0 flex-1 min-w-0"
-          placeholder="Título da nota"
-        />
+        <div className="flex items-center gap-2 flex-1 min-w-0">
+          {onBackToGraph && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={onBackToGraph}
+              className="border-2 h-8 w-8 p-0 flex-shrink-0"
+              title="Voltar ao grafo"
+            >
+              <ArrowLeft className="w-4 h-4" />
+            </Button>
+          )}
+          <input
+            ref={titleInputRef}
+            type="text"
+            value={localTitle}
+            onChange={handleTitleChange}
+            className="text-base sm:text-xl font-bold bg-transparent border-none outline-none focus:ring-0 flex-1 min-w-0"
+            placeholder="Título da nota"
+          />
+        </div>
         <div className="flex gap-1 sm:gap-2 flex-shrink-0">
           <Button
             variant="outline"
