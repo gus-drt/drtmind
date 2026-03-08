@@ -14,6 +14,7 @@ interface NoteListProps {
   onTogglePin: (id: string) => void;
   pinnedCount: number;
   loading?: boolean;
+  getTagsForNote: (noteId: string) => Tag[];
 }
 
 export const NoteList = ({
