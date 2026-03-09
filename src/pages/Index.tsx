@@ -173,7 +173,7 @@ const Index = () => {
 
             {/* Graph view */}
             <div
-              className={`absolute inset-0 pb-20 transition-all duration-300 ease-out ${
+              className={`absolute inset-0 transition-all duration-300 ease-out ${
                 activeView === 'graph'
                   ? 'opacity-100 translate-x-0'
                   : 'opacity-0 translate-x-8 pointer-events-none'
