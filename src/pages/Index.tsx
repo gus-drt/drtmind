@@ -232,7 +232,7 @@ const Index = () => {
           {/* Central FAB - Create Note */}
           <Button
             onClick={() => createNote()}
-            className="h-14 w-14 rounded-full shadow-lg bg-primary text-primary-foreground hover:bg-primary/90 -mt-4"
+            className="h-12 w-12 rounded-full shadow-lg bg-primary text-primary-foreground hover:bg-primary/90"
           >
             <Plus className="w-6 h-6" />
           </Button>
