@@ -572,10 +572,6 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
         </Button>
       </div>
 
-      {/* Info badge */}
-      <div className="absolute bottom-3 left-3 text-xs text-muted-foreground bg-background/80 backdrop-blur-sm px-2.5 py-1.5 border rounded-md shadow-sm">
-        {notes.length} notas • {stableLinks.length} conexões
-      </div>
     </div>
   );
 };
