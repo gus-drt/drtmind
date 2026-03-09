@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState, useCallback, useMemo } from 'react';
+import { useEffect, useRef, useState, useCallback, useMemo, useLayoutEffect } from 'react';
 import { Note, NoteLink, GraphNode } from '@/types/note';
 import { Button } from '@/components/ui/button';
 import { ZoomIn, ZoomOut, Maximize } from 'lucide-react';
@@ -8,6 +8,7 @@ interface NoteGraphProps {
   links: NoteLink[];
   selectedNoteId: string | null;
   onSelectNote: (id: string) => void;
+  isActive?: boolean;
 }
 
 interface Camera {
@@ -16,15 +17,15 @@ interface Camera {
   zoom: number;
 }
 
-export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGraphProps) => {
+export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote, isActive = true }: NoteGraphProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const nodesRef = useRef<GraphNode[]>([]);
-  const [dimensions, setDimensions] = useState({ width: 600, height: 400 });
+  const dimensionsRef = useRef({ width: 0, height: 0 });
+  const [, forceRender] = useState(0);
   const animationRef = useRef<number>();
   const draggingNodeRef = useRef<string | null>(null);
-  const [hoveredNode, setHoveredNode] = useState<string | null>(null);
-  const [, forceRender] = useState(0);
+  const hoveredNodeRef = useRef<string | null>(null);
 
   // Camera state for pan/zoom
   const cameraRef = useRef<Camera>({ x: 0, y: 0, zoom: 1 });
@@ -36,18 +37,91 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
   const dragStartPosRef = useRef<{ x: number; y: number } | null>(null);
   const didDragRef = useRef(false);
 
+  // Track whether we've done the initial fit
+  const hasInitialFitRef = useRef(false);
+  const prevDimsRef = useRef({ width: 0, height: 0 });
+
   const dpr = typeof window !== 'undefined' ? window.devicePixelRatio || 1 : 1;
 
   const stableLinks = useMemo(() => links, [JSON.stringify(links)]);
 
+  // --- Robust measurement ---
+  const measure = useCallback(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const rect = container.getBoundingClientRect();
+    const w = Math.floor(rect.width);
+    const h = Math.floor(rect.height);
+    if (w > 0 && h > 0) {
+      const prev = dimensionsRef.current;
+      if (prev.width !== w || prev.height !== h) {
+        dimensionsRef.current = { width: w, height: h };
+        forceRender(n => n + 1);
+      }
+    }
+  }, []);
+
+  // Measure on mount (useLayoutEffect for synchronous first paint)
+  useLayoutEffect(() => {
+    measure();
+    // Also measure after 1-2 frames to catch layout settling
+    const raf1 = requestAnimationFrame(() => {
+      measure();
+      const raf2 = requestAnimationFrame(measure);
+      return () => cancelAnimationFrame(raf2);
+    });
+    return () => cancelAnimationFrame(raf1);
+  }, [measure]);
+
+  // ResizeObserver as reinforcement
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+    const observer = new ResizeObserver(() => measure());
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, [measure]);
+
+  // Global events: resize, orientationchange, visualViewport
+  useEffect(() => {
+    const handler = () => {
+      measure();
+      // Also re-measure after a short delay for orientation change settling
+      requestAnimationFrame(measure);
+    };
+    window.addEventListener('resize', handler);
+    window.addEventListener('orientationchange', handler);
+    const vv = window.visualViewport;
+    if (vv) vv.addEventListener('resize', handler);
+    return () => {
+      window.removeEventListener('resize', handler);
+      window.removeEventListener('orientationchange', handler);
+      if (vv) vv.removeEventListener('resize', handler);
+    };
+  }, [measure]);
+
+  // Re-measure when isActive changes (view switched to graph)
+  useEffect(() => {
+    if (isActive) {
+      // Measure immediately + after a couple of frames
+      measure();
+      const raf = requestAnimationFrame(() => {
+        measure();
+        requestAnimationFrame(measure);
+      });
+      return () => cancelAnimationFrame(raf);
+    }
+  }, [isActive, measure]);
+
   // Convert screen coords to world coords
   const screenToWorld = useCallback((sx: number, sy: number) => {
     const cam = cameraRef.current;
+    const dims = dimensionsRef.current;
     return {
-      x: (sx - dimensions.width / 2) / cam.zoom + cam.x,
-      y: (sy - dimensions.height / 2) / cam.zoom + cam.y,
+      x: (sx - dims.width / 2) / cam.zoom + cam.x,
+      y: (sy - dims.height / 2) / cam.zoom + cam.y,
     };
-  }, [dimensions]);
+  }, []);
 
   // Detect index note
   const indexNoteId = useMemo(() => {
@@ -59,7 +133,8 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
 
   // Initialize/update nodes
   useEffect(() => {
-    const radius = Math.min(dimensions.width, dimensions.height) * 0.3;
+    const dims = dimensionsRef.current;
+    const radius = Math.min(dims.width || 300, dims.height || 300) * 0.3;
     const existingNodes = nodesRef.current;
 
     nodesRef.current = notes.map((note, i) => {
@@ -78,30 +153,13 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
     });
 
     forceRender(n => n + 1);
-  }, [notes, dimensions, indexNoteId]);
-
-  // Handle resize with ResizeObserver
-  useEffect(() => {
-    const container = containerRef.current;
-    if (!container) return;
-
-    const observer = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const { width, height } = entry.contentRect;
-        if (width > 0 && height > 0) {
-          setDimensions({ width: Math.floor(width), height: Math.floor(height) });
-        }
-      }
-    });
-
-    observer.observe(container);
-    return () => observer.disconnect();
-  }, []);
+  }, [notes, indexNoteId]);
 
   // Fit all nodes in view
   const fitToView = useCallback(() => {
     const nodes = nodesRef.current;
-    if (nodes.length === 0) return;
+    const dims = dimensionsRef.current;
+    if (nodes.length === 0 || dims.width === 0 || dims.height === 0) return;
 
     let minX = Infinity, maxX = -Infinity, minY = Infinity, maxY = -Infinity;
     nodes.forEach(n => {
@@ -115,8 +173,8 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
     const rangeX = maxX - minX + padding * 2;
     const rangeY = maxY - minY + padding * 2;
     const zoom = Math.min(
-      dimensions.width / rangeX,
-      dimensions.height / rangeY,
+      dims.width / rangeX,
+      dims.height / rangeY,
       2.5
     );
 
@@ -126,31 +184,47 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
       zoom: Math.max(0.15, zoom),
     };
     forceRender(n => n + 1);
-  }, [dimensions]);
+  }, []);
 
-  // Auto-fit on first load
-  const prevNoteCountRef = useRef(0);
+  // Auto-fit: only after valid dimensions + notes loaded
   useEffect(() => {
-    if (notes.length > 0 && prevNoteCountRef.current === 0) {
+    const dims = dimensionsRef.current;
+    if (notes.length > 0 && dims.width > 0 && dims.height > 0 && !hasInitialFitRef.current) {
+      hasInitialFitRef.current = true;
+      // Small delay for physics to settle
       setTimeout(fitToView, 350);
     }
-    prevNoteCountRef.current = notes.length;
   }, [notes.length, fitToView]);
+
+  // Re-fit when dimensions jump significantly (orientation change, view switch)
+  useEffect(() => {
+    const dims = dimensionsRef.current;
+    const prev = prevDimsRef.current;
+    if (prev.width > 0 && prev.height > 0 && dims.width > 0 && dims.height > 0) {
+      const wRatio = dims.width / prev.width;
+      const hRatio = dims.height / prev.height;
+      if (wRatio > 1.3 || wRatio < 0.7 || hRatio > 1.3 || hRatio < 0.7) {
+        setTimeout(fitToView, 100);
+      }
+    }
+    prevDimsRef.current = { ...dims };
+  });
 
   // Zoom helper
   const applyZoom = useCallback((delta: number, centerX?: number, centerY?: number) => {
     const cam = cameraRef.current;
+    const dims = dimensionsRef.current;
     const factor = delta > 0 ? 1.12 : 1 / 1.12;
     const newZoom = Math.max(0.1, Math.min(5, cam.zoom * factor));
 
     if (centerX !== undefined && centerY !== undefined) {
       const worldBefore = {
-        x: (centerX - dimensions.width / 2) / cam.zoom + cam.x,
-        y: (centerY - dimensions.height / 2) / cam.zoom + cam.y,
+        x: (centerX - dims.width / 2) / cam.zoom + cam.x,
+        y: (centerY - dims.height / 2) / cam.zoom + cam.y,
       };
       const worldAfter = {
-        x: (centerX - dimensions.width / 2) / newZoom + cam.x,
-        y: (centerY - dimensions.height / 2) / newZoom + cam.y,
+        x: (centerX - dims.width / 2) / newZoom + cam.x,
+        y: (centerY - dims.height / 2) / newZoom + cam.y,
       };
       cam.x += worldBefore.x - worldAfter.x;
       cam.y += worldBefore.y - worldAfter.y;
@@ -158,7 +232,7 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
 
     cam.zoom = newZoom;
     forceRender(n => n + 1);
-  }, [dimensions]);
+  }, []);
 
   // Physics + render loop
   useEffect(() => {
@@ -170,6 +244,7 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
     const simulate = () => {
       const currentNodes = nodesRef.current;
       const cam = cameraRef.current;
+      const dims = dimensionsRef.current;
       const dragging = draggingNodeRef.current;
 
       if (currentNodes.length > 0) {
@@ -218,13 +293,19 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
         });
       }
 
-      // HiDPI draw
-      const w = dimensions.width;
-      const h = dimensions.height;
+      // Use dimensions from ref (always fresh)
+      const w = dims.width;
+      const h = dims.height;
+      
+      // Skip rendering if dimensions are invalid
+      if (w <= 0 || h <= 0) {
+        animationRef.current = requestAnimationFrame(simulate);
+        return;
+      }
+
+      // Only update canvas bitmap size (CSS handles visual size via w-full h-full)
       canvas.width = w * dpr;
       canvas.height = h * dpr;
-      canvas.style.width = w + 'px';
-      canvas.style.height = h + 'px';
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
 
       // Background
@@ -261,6 +342,7 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
       // Colors
       const linkColor = isDark ? 'rgba(255,255,255,0.12)' : 'rgba(0,0,0,0.1)';
       const linkHighlight = isDark ? 'rgba(255,255,255,0.4)' : 'rgba(0,0,0,0.35)';
+      const hoveredNode = hoveredNodeRef.current;
 
       // Links with curves
       stableLinks.forEach(link => {
@@ -272,7 +354,6 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
           ctx.strokeStyle = hl ? linkHighlight : linkColor;
           ctx.lineWidth = (hl ? 2.5 : 1.5) / cam.zoom;
           ctx.moveTo(s.x, s.y);
-          // Slight curve for visual interest
           const mx = (s.x + t.x) / 2;
           const my = (s.y + t.y) / 2;
           const dx = t.x - s.x;
@@ -396,12 +477,12 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
 
     animationRef.current = requestAnimationFrame(simulate);
     return () => { if (animationRef.current) cancelAnimationFrame(animationRef.current); };
-  }, [stableLinks, dimensions, selectedNoteId, hoveredNode, indexNoteId, dpr]);
+  }, [stableLinks, selectedNoteId, indexNoteId, dpr]);
 
   const getNodeAtPosition = useCallback((sx: number, sy: number): GraphNode | null => {
-    const world = screenToWorld(sx, sy);
     const cam = cameraRef.current;
     const hitRadius = ('ontouchstart' in window ? 35 : 22) / cam.zoom;
+    const world = screenToWorld(sx, sy);
     const nodes = nodesRef.current;
     for (let i = nodes.length - 1; i >= 0; i--) {
       const n = nodes[i];
@@ -469,7 +550,7 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
     if (dragStartPosRef.current) {
       const dx = pos.x - dragStartPosRef.current.x;
       const dy = pos.y - dragStartPosRef.current.y;
-      if (dx * dx + dy * dy > 25) { // 5px threshold
+      if (dx * dx + dy * dy > 25) {
         didDragRef.current = true;
       }
     }
@@ -491,7 +572,7 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
       forceRender(n => n + 1);
     } else if (!('touches' in e)) {
       const node = getNodeAtPosition(pos.x, pos.y);
-      setHoveredNode(node?.id || null);
+      hoveredNodeRef.current = node?.id || null;
     }
   }, [getEventPosition, getNodeAtPosition, screenToWorld]);
 
@@ -499,7 +580,6 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
     pinchStartRef.current = null;
 
     const pos = getEventPosition(e);
-    const dragging = draggingNodeRef.current;
 
     // If we didn't drag far, treat as a click
     if (!didDragRef.current && pos) {
@@ -517,9 +597,11 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
   const handlePointerLeave = useCallback(() => {
     draggingNodeRef.current = null;
     isPanningRef.current = false;
-    setHoveredNode(null);
+    hoveredNodeRef.current = null;
     dragStartPosRef.current = null;
   }, []);
+
+  const dims = dimensionsRef.current;
 
   if (notes.length === 0) {
     return (
@@ -550,7 +632,7 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
           variant="outline"
           size="sm"
           className="h-9 w-9 p-0 border backdrop-blur-sm bg-background/80 shadow-sm"
-          onClick={() => applyZoom(1, dimensions.width / 2, dimensions.height / 2)}
+          onClick={() => applyZoom(1, dims.width / 2, dims.height / 2)}
         >
           <ZoomIn className="w-4 h-4" />
         </Button>
@@ -558,7 +640,7 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
           variant="outline"
           size="sm"
           className="h-9 w-9 p-0 border backdrop-blur-sm bg-background/80 shadow-sm"
-          onClick={() => applyZoom(-1, dimensions.width / 2, dimensions.height / 2)}
+          onClick={() => applyZoom(-1, dims.width / 2, dims.height / 2)}
         >
           <ZoomOut className="w-4 h-4" />
         </Button>
@@ -571,7 +653,6 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote }: NoteGr
           <Maximize className="w-4 h-4" />
         </Button>
       </div>
-
     </div>
   );
 };

@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useRef } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { useNotes } from '@/hooks/useNotesDb';
@@ -40,6 +40,24 @@ const Index = () => {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [activeView, setActiveView] = useState<'editor' | 'graph'>('editor');
   const [cameFromGraph, setCameFromGraph] = useState(false);
+  const [bottomBarHeight, setBottomBarHeight] = useState(0);
+  const bottomBarRef = useRef<HTMLElement>(null);
+
+  // Measure bottom bar height dynamically
+  useEffect(() => {
+    const el = bottomBarRef.current;
+    if (!el) return;
+    const observer = new ResizeObserver((entries) => {
+      for (const entry of entries) {
+        const h = entry.borderBoxSize?.[0]?.blockSize ?? entry.contentRect.height;
+        setBottomBarHeight(Math.ceil(h));
+      }
+    });
+    observer.observe(el);
+    // Initial measurement
+    setBottomBarHeight(Math.ceil(el.getBoundingClientRect().height));
+    return () => observer.disconnect();
+  }, []);
 
   // Swipe gestures for switching views
   const handleSwipeLeft = useCallback(() => {
@@ -137,7 +155,7 @@ const Index = () => {
                   ? 'opacity-100 translate-x-0'
                   : 'opacity-0 -translate-x-8 pointer-events-none'
               }`}
-              style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}
+              style={{ bottom: bottomBarHeight > 0 ? `${bottomBarHeight + 16}px` : 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}
             >
               {selectedNote ? (
                 <NoteEditor
@@ -179,13 +197,14 @@ const Index = () => {
                   ? 'opacity-100 translate-x-0'
                   : 'opacity-0 translate-x-8 pointer-events-none'
               }`}
-              style={{ bottom: 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}
+              style={{ bottom: bottomBarHeight > 0 ? `${bottomBarHeight + 16}px` : 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}
             >
               <NoteGraph
                 notes={notes}
                 links={links}
                 selectedNoteId={selectedNoteId}
                 onSelectNote={handleSelectNote}
+                isActive={activeView === 'graph'}
               />
             </div>
           </>
@@ -203,7 +222,7 @@ const Index = () => {
       </Sheet>
 
       {/* Floating Bottom Bar */}
-      <nav className="fixed bottom-4 left-4 right-4 z-50" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
+      <nav ref={bottomBarRef} className="fixed bottom-4 left-4 right-4 z-50" style={{ paddingBottom: 'env(safe-area-inset-bottom, 0px)' }}>
         <div className="glass-heavy rounded-2xl px-2 py-2 flex flex-col items-center max-w-md mx-auto gap-1">
           <div className="flex items-center justify-between w-full">
             {/* Menu Button */}
