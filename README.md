@@ -22,12 +22,19 @@ Esta aplicação foi construída para permitir que as ideias se conectem organic
 
 ## ✨ Funcionalidades Principais
 
-* **Visualização em Grafo:** Uma interface interativa que permite ver como suas notas se conectam visualmente, facilitando a descoberta de novos insights.
+* **Visualização em Grafo:** Interface interativa com pan/zoom, centralização automática no nó índice e layout responsivo para mobile.
 * **Editor Markdown:** Escreva notas ricas com suporte nativo a Markdown e pré-visualização em tempo real.
-* **Pensamento Bidirecional:** Conecte notas facilmente e navegue entre elas através de links internos.
-* **Autenticação Segura:** Proteção total dos seus pensamentos através de login social e e-mail via Supabase.
-* **Interface Neo-Brutalista:** Design moderno baseado em Shadcn/UI com bordas marcantes e alta legibilidade.
-* **Responsividade Total:** Uma experiência fluida tanto no desktop quanto em dispositivos móveis.
+* **Pensamento Bidirecional:** Conecte notas através de links internos `[[Nome da Nota]]` e navegue entre elas com um clique.
+* **Sistema de Tags:** Crie e gerencie tags coloridas para organizar suas notas; compatível com armazenamento local e na nuvem.
+* **Fixar Notas:** Destaque notas importantes fixando-as no topo da lista.
+* **Offline-First com Sincronização:** As notas são salvas localmente via IndexedDB e sincronizadas automaticamente com a nuvem quando a conexão é restabelecida. Um indicador visual mostra o status da sincronização em tempo real.
+* **Armazenamento Dual:** Notas salvas localmente (gratuito, ilimitado) ou na nuvem (Supabase), com migração automática ao trocar de plano.
+* **Importação e Exportação:** Exporte todas as suas notas em JSON e importe de volta a qualquer momento.
+* **Autenticação Segura:** Login por e-mail/senha com suporte a redefinição de senha via Supabase Auth.
+* **Interface Glassmorphism:** Design moderno com barra inferior em glass, tema claro/escuro e alta legibilidade em todos os tamanhos de tela.
+* **Responsividade Total:** Experiência fluida em desktop e mobile, com gestos de swipe e barra de navegação adaptada.
+* **Configurações Completas:** Página dedicada para alterar senha, tema da interface, exportar dados e excluir conta.
+* **Planos de Assinatura:** Planos Free, Pro e AI Plus com integração Stripe via Supabase Edge Functions.
 
 ---
 
@@ -37,10 +44,27 @@ O projeto utiliza o que há de mais moderno no ecossistema Web:
 
 * **Frontend:** [React](https://reactjs.org/) + [TypeScript](https://www.typescriptlang.org/)
 * **Estilização:** [Tailwind CSS](https://tailwindcss.com/) + [Shadcn/UI](https://ui.shadcn.com/)
-* **Backend & Auth:** [Supabase](https://supabase.com/)
+* **Backend & Auth:** [Supabase](https://supabase.com/) (Postgres, Auth, Edge Functions)
+* **Pagamentos:** Stripe via Supabase Edge Functions
+* **Armazenamento Local:** [IndexedDB](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API) via [idb](https://github.com/jakearchibald/idb)
 * **Gerenciamento de Estado:** [TanStack Query](https://tanstack.com/query/latest)
 * **Build Tool:** [Vite](https://vitejs.dev/)
+* **Temas:** [next-themes](https://github.com/pacocoursey/next-themes)
 * **Ícones:** [Lucide React](https://lucide.dev/)
+* **Testes:** [Vitest](https://vitest.dev/)
+
+---
+
+## 💳 Planos
+
+| Recurso | Free | Pro | AI Plus |
+|---|---|---|---|
+| Notas locais (IndexedDB) | ✅ Ilimitadas | ✅ Ilimitadas | ✅ Ilimitadas |
+| Notas na nuvem | Até 20 | ✅ Ilimitadas | ✅ Ilimitadas |
+| Sincronização multi-device | ❌ | ✅ | ✅ |
+| Suporte prioritário | ❌ | ✅ | ✅ |
+| Recursos de IA (em breve) | ❌ | ❌ | ✅ |
+| Preço | Grátis | R$ 19,90/mês | R$ 39,90/mês |
 
 ---
 
@@ -48,40 +72,49 @@ O projeto utiliza o que há de mais moderno no ecossistema Web:
 
 ### Pré-requisitos
 
-* Node.js (v18 ou superior)
-* npm ou Bun
+* Node.js (v18 ou superior) ou [Bun](https://bun.sh/)
+* Uma conta no [Supabase](https://supabase.com/) com um projeto configurado
 
 ### Instalação
 
 1. Clone o repositório:
 
 ```bash
-git clone https://github.com/seu-usuario/graphnotes.git
+git clone https://github.com/gus-drt/graphnotes.git
 cd graphnotes
-
 ```
 
 2. Instale as dependências:
 
 ```bash
 npm install
-
+# ou
+bun install
 ```
 
 3. Configure as variáveis de ambiente:
-Crie um arquivo `.env` na raiz e adicione suas chaves do Supabase:
+Copie o arquivo de exemplo e preencha com as suas chaves do Supabase:
 
-```env
-VITE_SUPABASE_URL=sua_url_aqui
-VITE_SUPABASE_ANON_KEY=sua_chave_anon_aqui
-
+```bash
+cp .env.example .env
 ```
+
+Edite o `.env` com os valores do seu projeto Supabase. Consulte `.env.example` para ver todas as variáveis necessárias.
 
 4. Inicie o servidor de desenvolvimento:
 
 ```bash
 npm run dev
+# ou
+bun dev
+```
 
+### Executando os Testes
+
+```bash
+npm run test
+# ou
+bun test
 ```
 
 ---
@@ -90,12 +123,22 @@ npm run dev
 
 ```text
 src/
-├── components/         # Componentes reutilizáveis (UI, Notes, etc)
-├── hooks/              # Custom hooks para lógica de negócios e DB
+├── __tests__/          # Testes automatizados (Vitest)
+├── components/
+│   ├── notes/          # Componentes de notas (editor, lista, grafo, tags)
+│   ├── settings/       # Componentes da página de configurações
+│   └── ui/             # Componentes de UI (Shadcn/UI)
+├── config/             # Configurações de planos de assinatura
+├── data/               # Dados estáticos (notas de boas-vindas)
+├── hooks/              # Custom hooks (notas, tags, auth, sincronização, assinatura)
 ├── integrations/       # Configuração e tipos do Supabase
-├── pages/              # Páginas da aplicação (Index, Auth, NotFound)
+├── lib/                # Utilitários (IndexedDB, sync queue, migração)
+├── pages/              # Páginas da aplicação (Index, Auth, Settings, Pricing, ResetPassword)
 └── types/              # Definições de tipos TypeScript
 
+supabase/
+├── functions/          # Edge Functions (check-subscription, create-checkout, customer-portal, delete-account)
+└── migrations/         # Migrações do banco de dados
 ```
 
 ---
