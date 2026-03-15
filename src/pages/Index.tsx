@@ -10,7 +10,7 @@ import { NoteEditor } from '@/components/notes/NoteEditor';
 import { NoteGraph } from '@/components/notes/NoteGraph';
 import { Button } from '@/components/ui/button';
 import { Sheet, SheetContent } from '@/components/ui/sheet';
-import { Menu, Network, FileText, Loader2, Plus, Settings } from 'lucide-react';
+import { Menu, Network, FileText, Loader2, Plus, Settings, CloudOff, RefreshCw, Cloud } from 'lucide-react';
 
 const Index = () => {
   const navigate = useNavigate();
@@ -36,6 +36,8 @@ const Index = () => {
     cloudNoteCount,
     cloudNoteLimit,
     useCloud,
+    isOnline,
+    isSyncing,
   } = useNotes();
 
   const { tags, createTag, addTagToNote, removeTagFromNote, getTagsForNote } = useTags();
@@ -286,10 +288,33 @@ const Index = () => {
           </div>
 
           {/* Stats indicator */}
-          <span className="text-xs text-muted-foreground pb-1">
-            {notes.length} notas • {links.length} conexões
-            {!useCloud && ` • ☁️ ${cloudNoteCount}/${cloudNoteLimit}`}
-          </span>
+          <div className="flex items-center gap-2 text-xs text-muted-foreground pb-1">
+            <span>
+              {notes.length} notas • {links.length} conexões
+              {!useCloud && ` • ☁️ ${cloudNoteCount}/${cloudNoteLimit}`}
+            </span>
+            
+            {/* Sync Status Badge */}
+            {useCloud && (
+              <div className="flex items-center border-l border-border pl-2 border-opacity-50">
+                {!isOnline ? (
+                  <span className="flex items-center gap-1 text-destructive" title="Offline - Alterações locais">
+                    <CloudOff className="w-3 h-3" />
+                    <span className="max-sm:hidden">Offline</span>
+                  </span>
+                ) : isSyncing ? (
+                  <span className="flex items-center gap-1 text-primary" title="Sincronizando...">
+                    <RefreshCw className="w-3 h-3 animate-spin" />
+                    <span className="max-sm:hidden">Syncing</span>
+                  </span>
+                ) : (
+                  <span className="flex items-center gap-1 text-muted-foreground opacity-70" title="Sincronizado">
+                    <Cloud className="w-3 h-3" />
+                  </span>
+                )}
+              </div>
+            )}
+          </div>
         </div>
       </nav>
     </div>
