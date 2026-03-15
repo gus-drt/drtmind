@@ -1,10 +1,16 @@
 const REQUIRED_PUBLIC_VARS = [
   'VITE_SUPABASE_URL',
-  'VITE_SUPABASE_PUBLISHABLE_KEY',
 ] as const;
 
 export function getMissingPublicConfig(): string[] {
-  return REQUIRED_PUBLIC_VARS.filter(
+  const missing = REQUIRED_PUBLIC_VARS.filter(
     (key) => !import.meta.env[key]
   );
+  
+  // Check if either ANON_KEY or PUBLISHABLE_KEY is present
+  if (!import.meta.env.VITE_SUPABASE_ANON_KEY && !import.meta.env.VITE_SUPABASE_PUBLISHABLE_KEY) {
+    missing.push('VITE_SUPABASE_ANON_KEY');
+  }
+  
+  return missing;
 }

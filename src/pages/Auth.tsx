@@ -1,7 +1,6 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
-import { lovable } from '@/integrations/lovable/index';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -198,13 +197,20 @@ const Auth = () => {
             onClick={async () => {
               setGoogleLoading(true);
               try {
-                const { error } = await lovable.auth.signInWithOAuth("google", {
-                  redirect_uri: window.location.origin,
+                if (!supabase) {
+                  toast.error('Funcionalidade indisponível no modo offline.');
+                  return;
+                }
+                const { error } = await supabase.auth.signInWithOAuth({
+                  provider: "google",
+                  options: {
+                    redirectTo: window.location.origin,
+                  },
                 });
                 if (error) {
-                  toast.error('Erro ao entrar com Google');
+                  toast.error('Erro ao entrar com Google: ' + error.message);
                 }
-              } catch {
+              } catch (error: any) {
                 toast.error('Erro ao entrar com Google');
               } finally {
                 setGoogleLoading(false);
