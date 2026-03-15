@@ -34,7 +34,6 @@ Esta aplicação foi construída para permitir que as ideias se conectem organic
 * **Interface Glassmorphism:** Design moderno com barra inferior em glass, tema claro/escuro e alta legibilidade em todos os tamanhos de tela.
 * **Responsividade Total:** Experiência fluida em desktop e mobile, com gestos de swipe e barra de navegação adaptada.
 * **Configurações Completas:** Página dedicada para alterar senha, tema da interface, exportar dados e excluir conta.
-* **Planos de Assinatura:** Planos Free, Pro e AI Plus com integração Stripe via Supabase Edge Functions.
 
 ---
 
@@ -44,8 +43,7 @@ O projeto utiliza o que há de mais moderno no ecossistema Web:
 
 * **Frontend:** [React](https://reactjs.org/) + [TypeScript](https://www.typescriptlang.org/)
 * **Estilização:** [Tailwind CSS](https://tailwindcss.com/) + [Shadcn/UI](https://ui.shadcn.com/)
-* **Backend & Auth:** [Supabase](https://supabase.com/) (Postgres, Auth, Edge Functions)
-* **Pagamentos:** Stripe via Supabase Edge Functions
+* **Backend & Auth:** [Supabase](https://supabase.com/) (Postgres, Auth)
 * **Armazenamento Local:** [IndexedDB](https://developer.mozilla.org/en-US/docs/Web/API/IndexedDB_API) via [idb](https://github.com/jakearchibald/idb)
 * **Gerenciamento de Estado:** [TanStack Query](https://tanstack.com/query/latest)
 * **Build Tool:** [Vite](https://vitejs.dev/)
