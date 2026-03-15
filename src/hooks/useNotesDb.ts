@@ -2,9 +2,20 @@ import { useState, useEffect, useCallback, useRef } from 'react';
 import { supabase } from '@/integrations/supabase/client';
 import { useAuth } from '@/hooks/useAuth';
 import { useStorageMode } from '@/hooks/useStorageMode';
+import { useOnlineStatus } from '@/hooks/useOnlineStatus';
 import { Note, NoteLink } from '@/types/note';
 import { WELCOME_NOTES_DATA } from '@/data/welcomeNotes';
 import { toast } from 'sonner';
+
+import {
+  getAllNotes as idbGetAll,
+  putNote as idbPut,
+  deleteNoteFromIDB,
+  noteToIDB,
+  idbToNote,
+  migrateFromLocalStorage,
+} from '@/lib/indexedDb';
+import { enqueue, processQueue } from '@/lib/syncQueue';
 
 // ─── Helpers ────────────────────────────────────────────────────
 
@@ -16,60 +27,6 @@ const extractLinks = (content: string): string[] => {
     matches.push(match[1]);
   }
   return matches;
-};
-
-// ─── localStorage helpers ───────────────────────────────────────
-
-const LS_NOTES = (uid: string) => `gn_notes_${uid}`;
-const LS_CLOUD_IDS = (uid: string) => `gn_cloud_ids_${uid}`;
-
-const readLocalNotes = (uid: string): Note[] => {
-  try {
-    const raw = localStorage.getItem(LS_NOTES(uid));
-    if (!raw) return [];
-    return (JSON.parse(raw) as any[]).map(n => ({
-      ...n,
-      createdAt: new Date(n.createdAt),
-      updatedAt: new Date(n.updatedAt),
-      pinnedAt: n.pinnedAt ? new Date(n.pinnedAt) : null,
-      linkedNotes: extractLinks(n.content),
-    }));
-  } catch {
-    return [];
-  }
-};
-
-const writeLocalNotes = (uid: string, notes: Note[]) => {
-  try {
-    localStorage.setItem(
-      LS_NOTES(uid),
-      JSON.stringify(
-        notes.map(n => ({
-          id: n.id,
-          title: n.title,
-          content: n.content,
-          createdAt: n.createdAt instanceof Date ? n.createdAt.toISOString() : n.createdAt,
-          updatedAt: n.updatedAt instanceof Date ? n.updatedAt.toISOString() : n.updatedAt,
-          pinned: n.pinned,
-          pinnedAt: n.pinnedAt instanceof Date ? n.pinnedAt.toISOString() : n.pinnedAt,
-        }))
-      )
-    );
-  } catch (e) {
-    console.error('localStorage write failed:', e);
-  }
-};
-
-const readCloudIds = (uid: string): string[] => {
-  try {
-    return JSON.parse(localStorage.getItem(LS_CLOUD_IDS(uid)) || '[]');
-  } catch {
-    return [];
-  }
-};
-
-const writeCloudIds = (uid: string, ids: string[]) => {
-  localStorage.setItem(LS_CLOUD_IDS(uid), JSON.stringify(ids));
 };
 
 // Map Supabase row → Note
@@ -84,11 +41,18 @@ const mapDbNote = (row: any): Note => ({
   pinnedAt: row.pinned_at ? new Date(row.pinned_at) : null,
 });
 
+// Convert IDBNote → Note (with linked notes)
+const idbNoteToNote = (idb: ReturnType<typeof idbToNote>): Note => ({
+  ...idb,
+  linkedNotes: extractLinks(idb.content),
+});
+
 // ─── Hook ───────────────────────────────────────────────────────
 
 export const useNotes = () => {
   const { user } = useAuth();
   const { useCloud, cloudNoteLimit, loading: storageModeLoading } = useStorageMode();
+  const { isOnline, isSyncing, triggerSync } = useOnlineStatus(user?.id);
 
   const [notes, setNotes] = useState<Note[]>([]);
   const [selectedNoteId, setSelectedNoteId] = useState<string | null>(null);
@@ -137,6 +101,12 @@ export const useNotes = () => {
         .select();
       if (error) throw error;
       const created = (data || []).map(mapDbNote);
+
+      // Also save to IndexedDB as cache
+      for (const note of created) {
+        await idbPut(noteToIDB(note, user.id));
+      }
+
       setNotes(created);
       const idx = created.find(n => n.title === 'Índice');
       if (idx) setSelectedNoteId(idx.id);
@@ -145,20 +115,31 @@ export const useNotes = () => {
     }
   }, [user]);
 
-  // ─── Welcome Notes (Local) ────────────────────────────────
-  const createWelcomeNotesLocal = useCallback((): Note[] => {
-    const now = new Date();
-    return WELCOME_NOTES_DATA.map(n => ({
-      id: crypto.randomUUID(),
-      title: n.title,
-      content: n.content,
-      createdAt: now,
-      updatedAt: now,
-      linkedNotes: extractLinks(n.content),
-      pinned: n.pinned || false,
-      pinnedAt: n.pinned ? now : null,
-    }));
-  }, []);
+  // ─── Welcome Notes (Local/IndexedDB) ──────────────────────
+  const createWelcomeNotesLocal = useCallback(
+    async (): Promise<Note[]> => {
+      if (!user) return [];
+      const now = new Date();
+      const welcomeNotes: Note[] = WELCOME_NOTES_DATA.map(n => ({
+        id: crypto.randomUUID(),
+        title: n.title,
+        content: n.content,
+        createdAt: now,
+        updatedAt: now,
+        linkedNotes: extractLinks(n.content),
+        pinned: n.pinned || false,
+        pinnedAt: n.pinned ? now : null,
+      }));
+
+      // Persist to IndexedDB
+      for (const note of welcomeNotes) {
+        await idbPut(noteToIDB(note, user.id));
+      }
+
+      return welcomeNotes;
+    },
+    [user]
+  );
 
   // ─── fetchNotes ────────────────────────────────────────────
   const fetchNotes = useCallback(async () => {
@@ -170,25 +151,61 @@ export const useNotes = () => {
     if (storageModeLoading) return;
 
     try {
+      // STEP 1: Migrate from localStorage if needed (one-time, safe)
+      await migrateFromLocalStorage(user.id);
+
+      // STEP 2: Load from IndexedDB instantly (offline-first)
+      const localIdbNotes = await idbGetAll(user.id);
+      const localNotes = localIdbNotes.map(n => idbNoteToNote(idbToNote(n)));
+
       if (useCloud) {
         // ── CLOUD MODE ──
-        const { data, error } = await supabase
-          .from('notes')
-          .select('*')
-          .eq('user_id', user.id)
-          .order('updated_at', { ascending: false });
-        if (error) throw error;
+        if (isOnline) {
+          try {
+            const { data, error } = await supabase
+              .from('notes')
+              .select('*')
+              .eq('user_id', user.id)
+              .order('updated_at', { ascending: false });
 
-        const fetched = (data || []).map(mapDbNote);
-        setNotes(fetched);
-        autoSelectIndex(fetched);
-        if (fetched.length === 0) await createWelcomeNotesCloud();
+            if (error) throw error;
+
+            const cloudNotes = (data || []).map(mapDbNote);
+
+            if (cloudNotes.length === 0 && localNotes.length === 0) {
+              await createWelcomeNotesCloud();
+              return;
+            }
+
+            // Sync cloud → IndexedDB cache
+            for (const note of cloudNotes) {
+              await idbPut(noteToIDB(note, user.id));
+            }
+
+            setNotes(cloudNotes);
+            setCloudNoteCount(cloudNotes.length);
+            autoSelectIndex(cloudNotes);
+          } catch {
+            // Offline fallback: use IndexedDB data
+            if (localNotes.length > 0) {
+              setNotes(localNotes);
+              autoSelectIndex(localNotes);
+            }
+          }
+        } else {
+          // Fully offline — serve from IndexedDB
+          if (localNotes.length > 0) {
+            setNotes(localNotes);
+            autoSelectIndex(localNotes);
+          }
+        }
       } else {
         // ── LOCAL MODE ──
-        let localNotes = readLocalNotes(user.id);
-
-        if (localNotes.length === 0) {
-          // Try pulling existing cloud notes (e.g. migration from paid → free)
+        if (localNotes.length > 0) {
+          setNotes(localNotes);
+          autoSelectIndex(localNotes);
+        } else if (isOnline) {
+          // Try pulling existing cloud notes (migration from paid → free)
           try {
             const { data } = await supabase
               .from('notes')
@@ -198,25 +215,29 @@ export const useNotes = () => {
               .limit(cloudNoteLimit === Infinity ? 1000 : cloudNoteLimit);
 
             if (data && data.length > 0) {
-              localNotes = data.map(mapDbNote);
-              writeLocalNotes(user.id, localNotes);
-              writeCloudIds(user.id, data.map(d => d.id));
+              const pulledNotes = data.map(mapDbNote);
+              // Save to IndexedDB
+              for (const note of pulledNotes) {
+                await idbPut(noteToIDB(note, user.id));
+              }
+              setNotes(pulledNotes);
               setCloudNoteCount(data.length);
+              autoSelectIndex(pulledNotes);
             } else {
-              localNotes = createWelcomeNotesLocal();
-              writeLocalNotes(user.id, localNotes);
+              const welcome = await createWelcomeNotesLocal();
+              setNotes(welcome);
+              autoSelectIndex(welcome);
             }
           } catch {
-            localNotes = createWelcomeNotesLocal();
-            writeLocalNotes(user.id, localNotes);
+            const welcome = await createWelcomeNotesLocal();
+            setNotes(welcome);
+            autoSelectIndex(welcome);
           }
         } else {
-          const cloudIds = readCloudIds(user.id);
-          setCloudNoteCount(cloudIds.length);
+          const welcome = await createWelcomeNotesLocal();
+          setNotes(welcome);
+          autoSelectIndex(welcome);
         }
-
-        setNotes(localNotes);
-        autoSelectIndex(localNotes);
       }
     } catch (error) {
       console.error('Error fetching notes:', error);
@@ -224,7 +245,7 @@ export const useNotes = () => {
     } finally {
       setLoading(false);
     }
-  }, [user, useCloud, storageModeLoading, cloudNoteLimit, autoSelectIndex, createWelcomeNotesCloud, createWelcomeNotesLocal]);
+  }, [user, useCloud, storageModeLoading, cloudNoteLimit, isOnline, autoSelectIndex, createWelcomeNotesCloud, createWelcomeNotesLocal]);
 
   useEffect(() => {
     fetchNotes();
@@ -234,19 +255,26 @@ export const useNotes = () => {
   const saveToDatabase = useCallback(
     async (id: string, updates: Partial<Pick<Note, 'title' | 'content'>>) => {
       if (!user) return;
-      try {
-        const { error } = await supabase
-          .from('notes')
-          .update({ ...updates, updated_at: new Date().toISOString() })
-          .eq('id', id)
-          .eq('user_id', user.id);
-        if (error) throw error;
-      } catch (error) {
-        console.error('Error updating note:', error);
-        if (useCloud) toast.error('Erro ao salvar nota');
+
+      if (isOnline) {
+        try {
+          const { error } = await supabase
+            .from('notes')
+            .update({ ...updates, updated_at: new Date().toISOString() })
+            .eq('id', id)
+            .eq('user_id', user.id);
+          if (error) throw error;
+        } catch (error) {
+          console.error('Error updating note (queueing for retry):', error);
+          // Failed to save online → enqueue for later
+          await enqueue(id, user.id, 'update', updates);
+        }
+      } else {
+        // Offline → enqueue
+        await enqueue(id, user.id, 'update', updates);
       }
     },
-    [user, useCloud]
+    [user, isOnline]
   );
 
   // ─── createNote ────────────────────────────────────────────
@@ -254,68 +282,71 @@ export const useNotes = () => {
     async (title: string = 'Nova Nota', initialContent?: string) => {
       if (!user) return null;
       const content = initialContent ?? `# ${title}\n\n`;
+      const now = new Date();
 
-      if (useCloud) {
-        try {
-          const { data, error } = await supabase
-            .from('notes')
-            .insert({ user_id: user.id, title, content })
-            .select()
-            .single();
-          if (error) throw error;
-          const newNote = mapDbNote(data);
-          setNotes(prev => [newNote, ...prev]);
-          setSelectedNoteId(newNote.id);
-          return newNote;
-        } catch (error) {
-          console.error('Error creating note:', error);
-          toast.error('Erro ao criar nota');
-          return null;
-        }
-      } else {
-        const newNote: Note = {
-          id: crypto.randomUUID(),
-          title,
-          content,
-          createdAt: new Date(),
-          updatedAt: new Date(),
-          linkedNotes: extractLinks(content),
-          pinned: false,
-          pinnedAt: null,
-        };
+      const newNote: Note = {
+        id: crypto.randomUUID(),
+        title,
+        content,
+        createdAt: now,
+        updatedAt: now,
+        linkedNotes: extractLinks(content),
+        pinned: false,
+        pinnedAt: null,
+      };
 
-        setNotes(prev => {
-          const updated = [newNote, ...prev];
-          writeLocalNotes(user.id, updated);
-          return updated;
-        });
-        setSelectedNoteId(newNote.id);
+      // 1. Save to IndexedDB immediately (offline-first)
+      await idbPut(noteToIDB(newNote, user.id));
 
-        // Cloud sync if under limit
-        const cloudIds = readCloudIds(user.id);
-        if (cloudIds.length < cloudNoteLimit) {
-          supabase
-            .from('notes')
-            .insert({ id: newNote.id, user_id: user.id, title, content })
-            .then(({ error }) => {
-              if (!error) {
-                const ids = [...cloudIds, newNote.id];
-                writeCloudIds(user.id, ids);
-                setCloudNoteCount(ids.length);
-              }
+      // 2. Update React state
+      setNotes(prev => [newNote, ...prev]);
+      setSelectedNoteId(newNote.id);
+
+      // 3. Sync to cloud
+      if (useCloud || isOnline) {
+        if (isOnline) {
+          try {
+            const { error } = await supabase
+              .from('notes')
+              .insert({
+                id: newNote.id,
+                user_id: user.id,
+                title,
+                content,
+              })
+              .select()
+              .single();
+
+            if (error) throw error;
+          } catch {
+            // Failed — enqueue for later
+            await enqueue(newNote.id, user.id, 'create', {
+              title,
+              content,
+              createdAt: now.toISOString(),
+              updatedAt: now.toISOString(),
             });
+          }
+        } else {
+          // Offline — enqueue
+          await enqueue(newNote.id, user.id, 'create', {
+            title,
+            content,
+            createdAt: now.toISOString(),
+            updatedAt: now.toISOString(),
+          });
         }
-
-        return newNote;
       }
+
+      return newNote;
     },
-    [user, useCloud, cloudNoteLimit]
+    [user, useCloud, isOnline]
   );
 
   // ─── updateNote ────────────────────────────────────────────
   const updateNote = useCallback(
     (id: string, updates: Partial<Pick<Note, 'title' | 'content'>>) => {
-      // Immediate local state update
+      // 1. Immediate React state update
       setNotes(prev => {
         const updated = prev.map(note => {
           if (note.id !== id) return note;
@@ -327,16 +358,25 @@ export const useNotes = () => {
             updatedAt: new Date(),
           };
         });
-        // For local mode, persist immediately
-        if (!useCloud && user) writeLocalNotes(user.id, updated);
         return updated;
       });
 
-      // Debounced cloud save
-      const shouldSyncCloud =
-        useCloud || (user && readCloudIds(user.id).includes(id));
+      // 2. Persist to IndexedDB immediately
+      if (user) {
+        const noteInState = notes.find(n => n.id === id);
+        if (noteInState) {
+          const updatedNote = {
+            ...noteInState,
+            ...updates,
+            content: updates.content ?? noteInState.content,
+            updatedAt: new Date(),
+          };
+          idbPut(noteToIDB(updatedNote, user.id));
+        }
+      }
 
-      if (shouldSyncCloud) {
+      // 3. Debounced cloud save
+      if (user) {
         const currentPending = pendingUpdatesRef.current.get(id) || {};
         pendingUpdatesRef.current.set(id, { ...currentPending, ...updates });
 
@@ -355,7 +395,7 @@ export const useNotes = () => {
         saveTimersRef.current.set(id, timer);
       }
     },
-    [user, useCloud, saveToDatabase]
+    [user, notes, saveToDatabase]
   );
 
   // ─── flushPendingUpdates ───────────────────────────────────
@@ -384,7 +424,14 @@ export const useNotes = () => {
       }
       pendingUpdatesRef.current.delete(id);
 
-      if (useCloud) {
+      // 1. Delete from IndexedDB immediately
+      await deleteNoteFromIDB(id);
+
+      // 2. Update React state
+      setNotes(prev => prev.filter(n => n.id !== id));
+
+      // 3. Sync deletion to cloud
+      if (isOnline) {
         try {
           const { error } = await supabase
             .from('notes')
@@ -392,40 +439,17 @@ export const useNotes = () => {
             .eq('id', id)
             .eq('user_id', user.id);
           if (error) throw error;
-        } catch (error) {
-          console.error('Error deleting note:', error);
-          toast.error('Erro ao excluir nota');
-          return;
+        } catch {
+          await enqueue(id, user.id, 'delete', {});
         }
-      }
-
-      setNotes(prev => {
-        const updated = prev.filter(n => n.id !== id);
-        if (!useCloud) writeLocalNotes(user.id, updated);
-        return updated;
-      });
-
-      // Clean up cloud sync for local mode
-      if (!useCloud) {
-        const cloudIds = readCloudIds(user.id);
-        if (cloudIds.includes(id)) {
-          supabase
-            .from('notes')
-            .delete()
-            .eq('id', id)
-            .eq('user_id', user.id)
-            .then(() => {
-              const newIds = cloudIds.filter(cid => cid !== id);
-              writeCloudIds(user.id, newIds);
-              setCloudNoteCount(newIds.length);
-            });
-        }
+      } else {
+        await enqueue(id, user.id, 'delete', {});
       }
 
       if (selectedNoteId === id) setSelectedNoteId(null);
       toast.success('Nota excluída');
     },
-    [user, useCloud, selectedNoteId]
+    [user, isOnline, selectedNoteId]
   );
 
   // ─── togglePinNote ─────────────────────────────────────────
@@ -445,16 +469,20 @@ export const useNotes = () => {
 
       const pinnedAt = newPinned ? new Date() : null;
 
-      // Optimistic update
+      // 1. Update React state optimistically
       setNotes(prev => {
         const updated = prev.map(n =>
           n.id === id ? { ...n, pinned: newPinned, pinnedAt } : n
         );
-        if (!useCloud) writeLocalNotes(user.id, updated);
         return updated;
       });
 
-      if (useCloud) {
+      // 2. Update IndexedDB
+      const updatedNote = { ...note, pinned: newPinned, pinnedAt };
+      await idbPut(noteToIDB(updatedNote, user.id));
+
+      // 3. Sync to cloud
+      if (isOnline) {
         try {
           const { error } = await supabase
             .from('notes')
@@ -465,34 +493,22 @@ export const useNotes = () => {
             .eq('id', id)
             .eq('user_id', user.id);
           if (error) throw error;
-        } catch (error) {
-          console.error('Error toggling pin:', error);
-          setNotes(prev =>
-            prev.map(n =>
-              n.id === id ? { ...n, pinned: note.pinned, pinnedAt: note.pinnedAt } : n
-            )
-          );
-          toast.error('Erro ao fixar nota');
-          return;
+        } catch {
+          await enqueue(id, user.id, 'pin', {
+            pinned: newPinned,
+            pinnedAt: pinnedAt?.toISOString() ?? null,
+          });
         }
       } else {
-        // Background cloud sync
-        const cloudIds = readCloudIds(user.id);
-        if (cloudIds.includes(id)) {
-          supabase
-            .from('notes')
-            .update({
-              pinned: newPinned,
-              pinned_at: pinnedAt?.toISOString() ?? null,
-            })
-            .eq('id', id)
-            .eq('user_id', user.id);
-        }
+        await enqueue(id, user.id, 'pin', {
+          pinned: newPinned,
+          pinnedAt: pinnedAt?.toISOString() ?? null,
+        });
       }
 
       toast.success(newPinned ? 'Nota fixada' : 'Nota desafixada');
     },
-    [user, useCloud, notes]
+    [user, isOnline, notes]
   );
 
   // ─── Computed values ───────────────────────────────────────
@@ -582,5 +598,8 @@ export const useNotes = () => {
     cloudNoteCount,
     cloudNoteLimit,
     useCloud,
+    isOnline,
+    isSyncing,
+    triggerSync,
   };
 };

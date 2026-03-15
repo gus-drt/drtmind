@@ -23,5 +23,16 @@ dist-ssr
 *.sln
 *.sw?
 
+# Environment variables
+.env
+.env.local
+.env.production
+.env.development
+
+# Test results and coverage
+coverage/
+*.lcov
+
+
 # AI Docs and instructions
 GEMINI.md
