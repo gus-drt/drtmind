@@ -28,7 +28,7 @@ Esta aplicação foi construída para permitir que as ideias se conectem organic
 * **Sistema de Tags:** Crie e gerencie tags coloridas para organizar suas notas; compatível com armazenamento local e na nuvem.
 * **Fixar Notas:** Destaque notas importantes fixando-as no topo da lista.
 * **Offline-First com Sincronização:** As notas são salvas localmente via IndexedDB e sincronizadas automaticamente com a nuvem quando a conexão é restabelecida. Um indicador visual mostra o status da sincronização em tempo real.
-* **Armazenamento Dual:** Notas salvas localmente (gratuito, ilimitado) ou na nuvem (Supabase), com migração automática ao trocar de plano.
+* **Armazenamento Dual:** Notas salvas localmente (gratuito, ilimitado) ou na nuvem (Supabase), com limite de até 50 notas salvas e sincronizadas.
 * **Importação e Exportação:** Exporte todas as suas notas em JSON e importe de volta a qualquer momento.
 * **Autenticação Segura:** Login por e-mail/senha com suporte a redefinição de senha via Supabase Auth.
 * **Interface Glassmorphism:** Design moderno com barra inferior em glass, tema claro/escuro e alta legibilidade em todos os tamanhos de tela.
