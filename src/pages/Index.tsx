@@ -4,7 +4,6 @@ import { useAuth } from '@/hooks/useAuth';
 import { useNotes } from '@/hooks/useNotesDb';
 import { useTags } from '@/hooks/useTags';
 import { useIsMobile } from '@/hooks/use-mobile';
-import { useSwipe } from '@/hooks/useSwipe';
 import { NoteList } from '@/components/notes/NoteList';
 import { NoteEditor } from '@/components/notes/NoteEditor';
 import { NoteGraph } from '@/components/notes/NoteGraph';
@@ -65,28 +64,7 @@ const Index = () => {
     return () => observer.disconnect();
   }, []);
 
-  // Swipe gestures for switching views
-  const handleSwipeLeft = useCallback(() => {
-    if (!sidebarOpen) {
-      setActiveView('graph');
-    }
-  }, [sidebarOpen]);
 
-  const handleSwipeRight = useCallback(() => {
-    if (!sidebarOpen) {
-      setActiveView('editor');
-    } else {
-      setSidebarOpen(false);
-    }
-  }, [sidebarOpen]);
-
-  useSwipe({
-    onSwipeRight: handleSwipeRight,
-    onSwipeLeft: handleSwipeLeft,
-    threshold: 50,
-    edgeWidth: 30,
-    edgeOnly: false,
-  });
 
   // Handle note selection
   const handleSelectNote = (id: string) => {
@@ -166,7 +144,7 @@ const Index = () => {
                   ? 'opacity-100 translate-x-0'
                   : 'opacity-0 -translate-x-8 pointer-events-none'
               }`}
-              style={{ bottom: bottomBarHeight > 0 ? `${bottomBarHeight + 16}px` : 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}
+              style={{ bottom: bottomBarHeight > 0 ? `${bottomBarHeight + 32}px` : 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}
             >
               {selectedNote ? (
                 <NoteEditor
@@ -208,7 +186,7 @@ const Index = () => {
                   ? 'opacity-100 translate-x-0'
                   : 'opacity-0 translate-x-8 pointer-events-none'
               }`}
-              style={{ bottom: bottomBarHeight > 0 ? `${bottomBarHeight + 16}px` : 'calc(5rem + env(safe-area-inset-bottom, 0px))' }}
+              style={{ bottom: bottomBarHeight > 0 ? `${bottomBarHeight + 32}px` : 'calc(6rem + env(safe-area-inset-bottom, 0px))' }}
             >
               <NoteGraph
                 notes={notes}

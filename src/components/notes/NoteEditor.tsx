@@ -208,7 +208,7 @@ Dicas de formatação:
       </div>
 
       {/* Footer */}
-      <div className="p-3 text-xs text-muted-foreground text-center border-t border-border/30">
+      <div className="p-3 pb-6 text-xs text-muted-foreground text-center border-t border-border/30">
         Atualizado: {note.updatedAt.toLocaleString('pt-BR')}
       </div>
     </div>
