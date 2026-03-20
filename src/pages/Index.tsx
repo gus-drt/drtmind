@@ -216,6 +216,7 @@ const Index = () => {
                 selectedNoteId={selectedNoteId}
                 onSelectNote={handleSelectNote}
                 isActive={activeView === 'graph'}
+                getTagsForNote={getTagsForNote}
               />
             </div>
           </>

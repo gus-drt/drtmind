@@ -9,6 +9,7 @@ interface NoteGraphProps {
   selectedNoteId: string | null;
   onSelectNote: (id: string) => void;
   isActive?: boolean;
+  getTagsForNote?: (id: string) => { color: string }[];
 }
 
 interface Camera {
@@ -17,7 +18,7 @@ interface Camera {
   zoom: number;
 }
 
-export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote, isActive = true }: NoteGraphProps) => {
+export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote, isActive = true, getTagsForNote }: NoteGraphProps) => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const containerRef = useRef<HTMLDivElement>(null);
   const nodesRef = useRef<GraphNode[]>([]);
@@ -377,6 +378,9 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote, isActive
                (l.target === selectedNoteId && l.source === node.id)
         );
 
+        const nodeTags = getTagsForNote ? getTagsForNote(node.id) : [];
+        const customColor = nodeTags.length > 0 ? nodeTags[0].color : null;
+
         let baseRadius = isIdx ? 12 : 8;
         if (isSelected) baseRadius = isIdx ? 14 : 11;
         else if (isHovered) baseRadius = isIdx ? 13 : 10;
@@ -407,6 +411,9 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote, isActive
         } else if (isSelected) {
           grad.addColorStop(0, isDark ? 'hsl(0, 0%, 95%)' : 'hsl(0, 0%, 15%)');
           grad.addColorStop(1, isDark ? 'hsl(0, 0%, 75%)' : 'hsl(0, 0%, 30%)');
+        } else if (customColor) {
+          grad.addColorStop(0, customColor);
+          grad.addColorStop(1, customColor);
         } else if (isConnected) {
           grad.addColorStop(0, isDark ? 'hsl(0, 0%, 75%)' : 'hsl(0, 0%, 30%)');
           grad.addColorStop(1, isDark ? 'hsl(0, 0%, 55%)' : 'hsl(0, 0%, 45%)');

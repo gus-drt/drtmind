@@ -18,7 +18,7 @@ import {
   AlertDialogTitle,
   AlertDialogTrigger,
 } from '@/components/ui/alert-dialog';
-import { ArrowLeft, Trash2, Loader2, User, Shield, Palette, Sun, Moon, Lock, HardDrive } from 'lucide-react';
+import { ArrowLeft, Trash2, Loader2, User, Shield, Palette, Sun, Moon, Lock, HardDrive, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTheme } from 'next-themes';
 
@@ -191,6 +191,25 @@ const Settings = () => {
           </CardHeader>
           <CardContent>
             <ImportExport />
+          </CardContent>
+        </Card>
+
+        {/* Session */}
+        <Card className="shadow-sm">
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2 text-base">
+              <LogOut className="w-5 h-5" />
+              Sessão
+            </CardTitle>
+            <CardDescription>
+              Encerre sua sessão atual e saia da conta com segurança
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <Button variant="outline" onClick={() => signOut()} className="gap-2 rounded-xl">
+              <LogOut className="w-4 h-4" />
+              Sair da conta
+            </Button>
           </CardContent>
         </Card>
 
