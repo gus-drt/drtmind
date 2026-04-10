@@ -184,14 +184,14 @@ const Settings = () => {
                 </Button>
               </div>
             </div>
-            
+
             <Separator />
-            
+
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium text-sm">Estilo das Tags</p>
                 <p className="text-sm text-muted-foreground">
-                  {tagStyle === 'dot' ? 'Apenas bolinha colorida' : 'Nomes completos'}
+                  {tagStyle === 'dot' ? 'Apenas badge colorida' : 'Nomes completos'}
                 </p>
               </div>
               <Switch checked={tagStyle === 'dot'} onCheckedChange={toggleTagStyle} />
