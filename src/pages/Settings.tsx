@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { ChangePassword } from '@/components/settings/ChangePassword';
@@ -28,6 +29,14 @@ const Settings = () => {
   const { theme, setTheme } = useTheme();
   const [deleting, setDeleting] = useState(false);
   const [confirmText, setConfirmText] = useState('');
+  const [tagStyle, setTagStyle] = useState(() => localStorage.getItem('tagDisplayStyle') || 'name');
+
+  const toggleTagStyle = (checked: boolean) => {
+    const newStyle = checked ? 'dot' : 'name';
+    setTagStyle(newStyle);
+    localStorage.setItem('tagDisplayStyle', newStyle);
+    window.dispatchEvent(new Event('tag-style-changed'));
+  };
 
   if (authLoading) {
     return (
@@ -148,7 +157,7 @@ const Settings = () => {
             </CardTitle>
             <CardDescription>Personalize a aparência do app</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium text-sm">Tema</p>
@@ -174,6 +183,18 @@ const Settings = () => {
                   <Moon className="w-4 h-4" />
                 </Button>
               </div>
+            </div>
+            
+            <Separator />
+            
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium text-sm">Estilo das Tags</p>
+                <p className="text-sm text-muted-foreground">
+                  {tagStyle === 'dot' ? 'Apenas bolinha colorida' : 'Nomes completos'}
+                </p>
+              </div>
+              <Switch checked={tagStyle === 'dot'} onCheckedChange={toggleTagStyle} />
             </div>
           </CardContent>
         </Card>
