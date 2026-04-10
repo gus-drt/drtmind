@@ -7,6 +7,7 @@ import { useLayoutPreferences } from '@/hooks/useLayoutPreferences';
 import { useKeyboardShortcuts, formatShortcut } from '@/hooks/useKeyboardShortcuts';
 import { Note, NoteLink } from '@/types/note';
 import { Tag } from '@/hooks/useTags';
+import { toast } from 'sonner';
 
 // Desktop components
 import { NavigationSidebar } from '@/components/desktop/NavigationSidebar';
@@ -15,6 +16,7 @@ import { EditorPanel } from '@/components/desktop/EditorPanel';
 import { GraphPanel, GraphPosition } from '@/components/desktop/GraphPanel';
 import { CommandPalette } from '@/components/desktop/CommandPalette';
 import { StatusBar } from '@/components/desktop/StatusBar';
+import { KeyboardShortcutsDialog } from '@/components/desktop/KeyboardShortcutsDialog';
 
 import { FileText, Plus, PanelLeft, Network } from 'lucide-react';
 
@@ -80,6 +82,7 @@ export const DesktopLayout = ({
     preferences.graphPosition === 'hidden' ? 'floating' : preferences.graphPosition as GraphPosition
   );
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [shortcutsDialogOpen, setShortcutsDialogOpen] = useState(false);
   const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
 
   // Persist graph position changes
@@ -103,12 +106,31 @@ export const DesktopLayout = ({
     { key: 'b', ctrl: true, action: () => toggleSidebar(), description: 'Toggle sidebar' },
     { key: ',', ctrl: true, action: () => navigate('/settings'), description: 'Configurações' },
     { key: 'k', ctrl: true, action: () => setCommandPaletteOpen(true), description: 'Paleta de comandos' },
+    { key: '/', ctrl: true, action: () => setShortcutsDialogOpen(true), description: 'Atalhos de teclado' },
+    { key: '?', action: () => setShortcutsDialogOpen(true), description: 'Atalhos de teclado' },
     { key: 'Escape', action: () => setSelectedTagId(null), description: 'Limpar filtro' },
   ]);
 
   const handleSelectNote = useCallback((id: string) => {
     setSelectedNoteId(id);
   }, [setSelectedNoteId]);
+
+  const handleCreateNote = useCallback(() => {
+    createNote();
+    toast.success('Nova nota criada!', {
+      description: 'Uma nova nota foi adicionada à sua coleção',
+      duration: 2000,
+    });
+  }, [createNote]);
+
+  const handleDeleteNote = useCallback((id: string) => {
+    const noteTitle = notes.find(n => n.id === id)?.title || 'Nota';
+    deleteNote(id);
+    toast.success('Nota excluída', {
+      description: `"${noteTitle}" foi removida`,
+      duration: 2000,
+    });
+  }, [deleteNote, notes]);
 
   // Filter notes by selected tag
   const displayedNotes = useMemo(() => {
@@ -137,7 +159,7 @@ export const DesktopLayout = ({
                   pinnedCount={pinnedCount}
                   selectedNoteId={selectedNoteId}
                   onSelectNote={handleSelectNote}
-                  onCreateNote={createNote}
+                  onCreateNote={handleCreateNote}
                   onToggleGraph={handleToggleGraph}
                   onOpenCommandPalette={() => setCommandPaletteOpen(true)}
                   onToggleSidebar={toggleSidebar}
@@ -163,7 +185,7 @@ export const DesktopLayout = ({
               <Button variant="ghost" size="icon" onClick={toggleSidebar}>
                 <PanelLeft className="w-4 h-4" />
               </Button>
-              <Button variant="ghost" size="icon" onClick={createNote}>
+              <Button variant="ghost" size="icon" onClick={handleCreateNote}>
                 <Plus className="w-4 h-4" />
               </Button>
               <Button
@@ -185,8 +207,8 @@ export const DesktopLayout = ({
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
               onSelectNote={handleSelectNote}
-              onCreateNote={createNote}
-              onDeleteNote={deleteNote}
+              onCreateNote={handleCreateNote}
+              onDeleteNote={handleDeleteNote}
               onTogglePin={togglePinNote}
               pinnedCount={pinnedCount}
               getTagsForNote={getTagsForNote}
@@ -204,7 +226,7 @@ export const DesktopLayout = ({
                     note={selectedNote}
                     notes={notes}
                     onUpdate={updateNote}
-                    onDelete={deleteNote}
+                    onDelete={handleDeleteNote}
                     onLinkClick={navigateToNote}
                     allTags={tags}
                     noteTags={getTagsForNote(selectedNote.id)}
@@ -272,10 +294,16 @@ export const DesktopLayout = ({
           notes={notes}
           tags={tags}
           onSelectNote={handleSelectNote}
-          onCreateNote={createNote}
+          onCreateNote={handleCreateNote}
           onToggleGraph={() => setShowGraph((prev) => !prev)}
-          onDeleteNote={deleteNote}
+          onDeleteNote={handleDeleteNote}
           getTagsForNote={getTagsForNote}
+        />
+
+        {/* Keyboard Shortcuts Dialog */}
+        <KeyboardShortcutsDialog
+          open={shortcutsDialogOpen}
+          onOpenChange={setShortcutsDialogOpen}
         />
       </div>
     </TooltipProvider>

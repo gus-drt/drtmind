@@ -23,6 +23,7 @@ import {
 } from '@/components/ui/dropdown-menu';
 import { HoverCard, HoverCardContent, HoverCardTrigger } from '@/components/ui/hover-card';
 import { MarkdownPreview } from '@/components/notes/MarkdownPreview';
+import { toast } from 'sonner';
 import {
   Plus,
   Search,
@@ -98,6 +99,10 @@ export const NoteListPanel = ({
 
   const handleCopyToClipboard = (note: Note) => {
     navigator.clipboard.writeText(note.content);
+    toast.success('Copiado!', {
+      description: `Conteúdo de "${note.title}" copiado para a área de transferência`,
+      duration: 2000,
+    });
   };
 
   const handleExport = (note: Note) => {
@@ -108,6 +113,10 @@ export const NoteListPanel = ({
     a.download = `${note.title.replace(/[^a-z0-9]/gi, '_')}.md`;
     a.click();
     URL.revokeObjectURL(url);
+    toast.success('Exportado!', {
+      description: `"${note.title}" exportado como Markdown`,
+      duration: 2000,
+    });
   };
 
   return (
@@ -166,9 +175,13 @@ export const NoteListPanel = ({
 
       {/* Notes list */}
       <ScrollArea className="flex-1">
-        <div className={`p-2 space-y-1 ${isDragging ? 'select-none' : ''}`}>
+        <div
+          role="listbox"
+          aria-label="Lista de notas"
+          className={`p-2 space-y-1 ${isDragging ? 'select-none' : ''}`}
+        >
           {notes.length === 0 ? (
-            <p className="text-xs text-muted-foreground text-center py-8">
+            <p className="text-xs text-muted-foreground text-center py-8" role="status">
               {searchQuery ? 'Nenhuma nota encontrada' : 'Nenhuma nota ainda'}
             </p>
           ) : (
@@ -255,18 +268,28 @@ const NoteListItem = ({
         <HoverCard openDelay={500} closeDelay={100}>
           <HoverCardTrigger asChild>
             <div
-              className={`w-full text-left p-2.5 rounded-lg cursor-pointer transition-all group ${isSelected
+              role="button"
+              tabIndex={0}
+              aria-selected={isSelected}
+              aria-label={`Nota: ${note.title}${note.pinned ? ' (fixada)' : ''}`}
+              className={`w-full text-left p-2.5 rounded-lg cursor-pointer transition-all group focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${isSelected
                 ? 'bg-primary text-primary-foreground shadow-sm'
                 : 'hover:bg-muted/80'
                 } ${dropIndicatorClasses}`}
               onClick={onSelect}
+              onKeyDown={(e) => {
+                if (e.key === 'Enter' || e.key === ' ') {
+                  e.preventDefault();
+                  onSelect();
+                }
+              }}
               {...(dragEnabled ? dragProps : {})}
             >
               <div className="flex items-start gap-2 min-w-0">
                 {dragEnabled ? (
-                  <GripVertical className="w-4 h-4 mt-0.5 flex-shrink-0 opacity-40 cursor-grab active:cursor-grabbing" />
+                  <GripVertical className="w-4 h-4 mt-0.5 flex-shrink-0 opacity-40 cursor-grab active:cursor-grabbing" aria-hidden="true" />
                 ) : (
-                  <FileText className="w-4 h-4 mt-0.5 flex-shrink-0 opacity-60" />
+                  <FileText className="w-4 h-4 mt-0.5 flex-shrink-0 opacity-60" aria-hidden="true" />
                 )}
                 <div className="min-w-0 flex-1 overflow-hidden">
                   <div className="flex items-center gap-1">

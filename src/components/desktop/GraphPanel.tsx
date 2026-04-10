@@ -80,7 +80,7 @@ export const GraphPanel = ({
   // Floating panel
   if (position === 'floating') {
     return (
-      <div className="absolute bottom-4 right-4 w-80 h-64 rounded-xl border shadow-xl bg-background/95 backdrop-blur overflow-hidden z-10 group">
+      <div className="absolute bottom-4 right-4 w-80 h-64 rounded-xl border shadow-xl bg-background/95 backdrop-blur overflow-hidden z-10 group animate-scale-in">
         <div className="absolute top-2 left-3 text-xs font-medium text-muted-foreground z-20">
           Grafo Local
         </div>
@@ -154,8 +154,10 @@ export const GraphPanel = ({
   const isDocked = position === 'docked-right' || position === 'docked-bottom';
   const isVertical = position === 'docked-bottom';
 
+  const animationClass = isVertical ? 'animate-slide-in-bottom' : 'animate-slide-in-right';
+
   return (
-    <div className={`bg-background border-t ${isVertical ? 'h-48' : 'h-full border-l'} relative`}>
+    <div className={`bg-background border-t ${isVertical ? 'h-48' : 'h-full border-l'} relative ${animationClass}`}>
       <div className="absolute top-2 left-3 text-xs font-medium text-muted-foreground z-20">
         Grafo • {notes.length} notas
       </div>
