@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { Note } from '@/types/note';
 import { Tag } from '@/hooks/useTags';
+import { useDragAndDrop } from '@/hooks/useDragAndDrop';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { ScrollArea } from '@/components/ui/scroll-area';
@@ -32,6 +33,7 @@ import {
   Trash2,
   ExternalLink,
   Download,
+  GripVertical,
 } from 'lucide-react';
 
 interface NoteListPanelProps {
@@ -45,6 +47,7 @@ interface NoteListPanelProps {
   onTogglePin: (id: string) => void;
   onDuplicateNote?: (note: Note) => void;
   onExportNote?: (note: Note) => void;
+  onReorderNotes?: (notes: Note[]) => void;
   pinnedCount: number;
   getTagsForNote: (noteId: string) => Tag[];
 }
@@ -60,14 +63,22 @@ export const NoteListPanel = ({
   onTogglePin,
   onDuplicateNote,
   onExportNote,
+  onReorderNotes,
   pinnedCount,
   getTagsForNote,
 }: NoteListPanelProps) => {
   const [prefs, setPrefs] = useState(() => {
     const saved = localStorage.getItem('noteListPrefs');
-    return saved ? JSON.parse(saved) : { preview: true, links: true, tags: true };
+    return saved ? JSON.parse(saved) : { preview: true, links: true, tags: true, dragEnabled: true };
   });
   const [tagStyle, setTagStyle] = useState(() => localStorage.getItem('tagDisplayStyle') || 'name');
+
+  // Drag and drop
+  const { getDragItemProps, isDragging, dropTarget } = useDragAndDrop<Note>({
+    items: notes,
+    getItemId: (note) => note.id,
+    onReorder: onReorderNotes,
+  });
 
   useEffect(() => {
     const handleStorageChange = () => {
@@ -123,6 +134,9 @@ export const NoteListPanel = ({
               <DropdownMenuCheckboxItem checked={prefs.tags} onCheckedChange={() => togglePref('tags')}>
                 Tags
               </DropdownMenuCheckboxItem>
+              <DropdownMenuCheckboxItem checked={prefs.dragEnabled} onCheckedChange={() => togglePref('dragEnabled')}>
+                Arrastar e soltar
+              </DropdownMenuCheckboxItem>
             </DropdownMenuContent>
           </DropdownMenu>
         </div>
@@ -152,16 +166,17 @@ export const NoteListPanel = ({
 
       {/* Notes list */}
       <ScrollArea className="flex-1">
-        <div className="p-2 space-y-1">
+        <div className={`p-2 space-y-1 ${isDragging ? 'select-none' : ''}`}>
           {notes.length === 0 ? (
             <p className="text-xs text-muted-foreground text-center py-8">
               {searchQuery ? 'Nenhuma nota encontrada' : 'Nenhuma nota ainda'}
             </p>
           ) : (
-            notes.map((note) => (
+            notes.map((note, index) => (
               <NoteListItem
                 key={note.id}
                 note={note}
+                index={index}
                 isSelected={selectedNoteId === note.id}
                 onSelect={() => onSelectNote(note.id)}
                 onTogglePin={() => onTogglePin(note.id)}
@@ -172,6 +187,10 @@ export const NoteListPanel = ({
                 prefs={prefs}
                 tagStyle={tagStyle}
                 tags={getTagsForNote(note.id)}
+                dragEnabled={prefs.dragEnabled && !!onReorderNotes}
+                dragProps={prefs.dragEnabled ? getDragItemProps(note, index) : undefined}
+                isDropTarget={dropTarget?.id === note.id}
+                dropPosition={dropTarget?.id === note.id ? dropTarget.position : undefined}
               />
             ))
           )}
@@ -189,6 +208,7 @@ export const NoteListPanel = ({
 // Individual note item with context menu and hover preview
 interface NoteListItemProps {
   note: Note;
+  index: number;
   isSelected: boolean;
   onSelect: () => void;
   onTogglePin: () => void;
@@ -196,13 +216,18 @@ interface NoteListItemProps {
   onCopy: () => void;
   onExport: () => void;
   pinnedCount: number;
-  prefs: { preview: boolean; links: boolean; tags: boolean };
+  prefs: { preview: boolean; links: boolean; tags: boolean; dragEnabled: boolean };
   tagStyle: string;
   tags: Tag[];
+  dragEnabled: boolean;
+  dragProps?: ReturnType<typeof useDragAndDrop<Note>>['getDragItemProps'] extends (item: Note, index: number) => infer R ? R : never;
+  isDropTarget: boolean;
+  dropPosition?: 'before' | 'after';
 }
 
 const NoteListItem = ({
   note,
+  index,
   isSelected,
   onSelect,
   onTogglePin,
@@ -213,7 +238,17 @@ const NoteListItem = ({
   prefs,
   tagStyle,
   tags,
+  dragEnabled,
+  dragProps,
+  isDropTarget,
+  dropPosition,
 }: NoteListItemProps) => {
+  const dropIndicatorClasses = isDropTarget
+    ? dropPosition === 'before'
+      ? 'ring-2 ring-primary ring-offset-1 -translate-y-0.5'
+      : 'ring-2 ring-primary ring-offset-1 translate-y-0.5'
+    : '';
+
   return (
     <ContextMenu>
       <ContextMenuTrigger asChild>
@@ -221,13 +256,18 @@ const NoteListItem = ({
           <HoverCardTrigger asChild>
             <div
               className={`w-full text-left p-2.5 rounded-lg cursor-pointer transition-all group ${isSelected
-                  ? 'bg-primary text-primary-foreground shadow-sm'
-                  : 'hover:bg-muted/80'
-                }`}
+                ? 'bg-primary text-primary-foreground shadow-sm'
+                : 'hover:bg-muted/80'
+                } ${dropIndicatorClasses}`}
               onClick={onSelect}
+              {...(dragEnabled ? dragProps : {})}
             >
               <div className="flex items-start gap-2 min-w-0">
-                <FileText className="w-4 h-4 mt-0.5 flex-shrink-0 opacity-60" />
+                {dragEnabled ? (
+                  <GripVertical className="w-4 h-4 mt-0.5 flex-shrink-0 opacity-40 cursor-grab active:cursor-grabbing" />
+                ) : (
+                  <FileText className="w-4 h-4 mt-0.5 flex-shrink-0 opacity-60" />
+                )}
                 <div className="min-w-0 flex-1 overflow-hidden">
                   <div className="flex items-center gap-1">
                     {note.pinned && <Pin className="w-3 h-3 flex-shrink-0" />}

@@ -3,6 +3,7 @@ import { Note } from '@/types/note';
 import { Tag } from '@/hooks/useTags';
 import { MarkdownPreview } from '@/components/notes/MarkdownPreview';
 import { TagSelector } from '@/components/notes/TagSelector';
+import { NoteLinkPreview } from '@/components/desktop/NoteLinkPreview';
 import { Button } from '@/components/ui/button';
 import { Tabs, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
@@ -23,6 +24,7 @@ type EditorMode = 'edit' | 'preview' | 'split';
 
 interface EditorPanelProps {
   note: Note;
+  notes?: Note[]; // All notes for link preview
   onUpdate: (id: string, updates: Partial<Pick<Note, 'title' | 'content'>>) => void;
   onDelete: (id: string) => void;
   onLinkClick: (title: string) => void;
@@ -37,6 +39,7 @@ interface EditorPanelProps {
 
 export const EditorPanel = ({
   note,
+  notes = [],
   onUpdate,
   onDelete,
   onLinkClick,
@@ -53,6 +56,7 @@ export const EditorPanel = ({
   const [localContent, setLocalContent] = useState(note.content);
   const [isZenMode, setIsZenMode] = useState(false);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
+  const previewContainerRef = useRef<HTMLDivElement>(null);
 
   // Sync local state when note changes
   useEffect(() => {
@@ -117,8 +121,15 @@ export const EditorPanel = ({
   );
 
   const previewContent = (
-    <div className="p-4 h-full overflow-auto">
+    <div ref={previewContainerRef} className="p-4 h-full overflow-auto">
       <MarkdownPreview content={localContent} onLinkClick={onLinkClick} />
+      {notes.length > 0 && (
+        <NoteLinkPreview
+          notes={notes}
+          onNavigate={onLinkClick}
+          containerRef={previewContainerRef}
+        />
+      )}
     </div>
   );
 

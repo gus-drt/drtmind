@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useMemo } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { ResizablePanelGroup, ResizablePanel, ResizableHandle } from '@/components/ui/resizable';
 import { Button } from '@/components/ui/button';
@@ -74,23 +74,49 @@ export const DesktopLayout = ({
   getTagsForNote,
 }: DesktopLayoutProps) => {
   const navigate = useNavigate();
-  const { preferences, toggleSidebar } = useLayoutPreferences();
-  const [showGraph, setShowGraph] = useState(true);
-  const [graphPosition, setGraphPosition] = useState<GraphPosition>('floating');
+  const { preferences, toggleSidebar, updatePreferences } = useLayoutPreferences();
+  const [showGraph, setShowGraph] = useState(preferences.graphPosition !== 'hidden');
+  const [graphPosition, setGraphPosition] = useState<GraphPosition>(
+    preferences.graphPosition === 'hidden' ? 'floating' : preferences.graphPosition as GraphPosition
+  );
   const [commandPaletteOpen, setCommandPaletteOpen] = useState(false);
+  const [selectedTagId, setSelectedTagId] = useState<string | null>(null);
+
+  // Persist graph position changes
+  const handleGraphPositionChange = useCallback((position: GraphPosition) => {
+    setGraphPosition(position);
+    updatePreferences({ graphPosition: position });
+  }, [updatePreferences]);
+
+  const handleToggleGraph = useCallback(() => {
+    setShowGraph((prev) => {
+      const newValue = !prev;
+      updatePreferences({ graphPosition: newValue ? graphPosition : 'hidden' });
+      return newValue;
+    });
+  }, [graphPosition, updatePreferences]);
 
   // Keyboard shortcuts
   useKeyboardShortcuts([
     { key: 'n', ctrl: true, action: () => createNote(), description: 'Nova nota' },
-    { key: 'g', ctrl: true, action: () => setShowGraph((prev) => !prev), description: 'Toggle grafo' },
+    { key: 'g', ctrl: true, action: handleToggleGraph, description: 'Toggle grafo' },
     { key: 'b', ctrl: true, action: () => toggleSidebar(), description: 'Toggle sidebar' },
     { key: ',', ctrl: true, action: () => navigate('/settings'), description: 'Configurações' },
     { key: 'k', ctrl: true, action: () => setCommandPaletteOpen(true), description: 'Paleta de comandos' },
+    { key: 'Escape', action: () => setSelectedTagId(null), description: 'Limpar filtro' },
   ]);
 
   const handleSelectNote = useCallback((id: string) => {
     setSelectedNoteId(id);
   }, [setSelectedNoteId]);
+
+  // Filter notes by selected tag
+  const displayedNotes = useMemo(() => {
+    if (!selectedTagId) return filteredNotes;
+    return filteredNotes.filter((note) =>
+      getTagsForNote(note.id).some((tag) => tag.id === selectedTagId)
+    );
+  }, [filteredNotes, selectedTagId, getTagsForNote]);
 
   return (
     <TooltipProvider delayDuration={300}>
@@ -112,7 +138,7 @@ export const DesktopLayout = ({
                   selectedNoteId={selectedNoteId}
                   onSelectNote={handleSelectNote}
                   onCreateNote={createNote}
-                  onToggleGraph={() => setShowGraph((prev) => !prev)}
+                  onToggleGraph={handleToggleGraph}
                   onOpenCommandPalette={() => setCommandPaletteOpen(true)}
                   onToggleSidebar={toggleSidebar}
                   showGraph={showGraph}
@@ -123,6 +149,8 @@ export const DesktopLayout = ({
                   cloudNoteLimit={cloudNoteLimit}
                   isAdmin={isAdmin}
                   linksCount={links.length}
+                  selectedTagId={selectedTagId}
+                  onSelectTag={setSelectedTagId}
                 />
               </ResizablePanel>
               <ResizableHandle withHandle />
@@ -141,7 +169,7 @@ export const DesktopLayout = ({
               <Button
                 variant="ghost"
                 size="icon"
-                onClick={() => setShowGraph((prev) => !prev)}
+                onClick={handleToggleGraph}
                 className={showGraph ? 'bg-accent' : ''}
               >
                 <Network className="w-4 h-4" />
@@ -152,7 +180,7 @@ export const DesktopLayout = ({
           {/* Column 2: Note List */}
           <ResizablePanel defaultSize={preferences.listPanelWidth} minSize={15} maxSize={30}>
             <NoteListPanel
-              notes={filteredNotes}
+              notes={displayedNotes}
               selectedNoteId={selectedNoteId}
               searchQuery={searchQuery}
               onSearchChange={setSearchQuery}
@@ -174,6 +202,7 @@ export const DesktopLayout = ({
                 <>
                   <EditorPanel
                     note={selectedNote}
+                    notes={notes}
                     onUpdate={updateNote}
                     onDelete={deleteNote}
                     onLinkClick={navigateToNote}
@@ -193,7 +222,7 @@ export const DesktopLayout = ({
                     onSelectNote={handleSelectNote}
                     getTagsForNote={getTagsForNote}
                     position={graphPosition}
-                    onPositionChange={setGraphPosition}
+                    onPositionChange={handleGraphPositionChange}
                     onClose={() => setShowGraph(false)}
                     isVisible={showGraph}
                   />
