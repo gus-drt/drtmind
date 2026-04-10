@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Button } from '@/components/ui/button';
+import { Switch } from '@/components/ui/switch';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Separator } from '@/components/ui/separator';
 import { ChangePassword } from '@/components/settings/ChangePassword';
@@ -21,13 +22,32 @@ import {
 import { ArrowLeft, Trash2, Loader2, User, Shield, Palette, Sun, Moon, Lock, HardDrive, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTheme } from 'next-themes';
+import { useLayoutPreferences } from '@/hooks/useLayoutPreferences';
+import { useIsMediumScreen } from '@/hooks/use-mobile';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 const Settings = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
+  const { preferences, updatePreferences } = useLayoutPreferences();
+  const isMediumScreen = useIsMediumScreen();
   const [deleting, setDeleting] = useState(false);
   const [confirmText, setConfirmText] = useState('');
+  const [tagStyle, setTagStyle] = useState(() => localStorage.getItem('tagDisplayStyle') || 'name');
+
+  const toggleTagStyle = (checked: boolean) => {
+    const newStyle = checked ? 'dot' : 'name';
+    setTagStyle(newStyle);
+    localStorage.setItem('tagDisplayStyle', newStyle);
+    window.dispatchEvent(new Event('tag-style-changed'));
+  };
 
   if (authLoading) {
     return (
@@ -148,7 +168,7 @@ const Settings = () => {
             </CardTitle>
             <CardDescription>Personalize a aparência do app</CardDescription>
           </CardHeader>
-          <CardContent>
+          <CardContent className="space-y-4">
             <div className="flex items-center justify-between">
               <div>
                 <p className="font-medium text-sm">Tema</p>
@@ -174,6 +194,69 @@ const Settings = () => {
                   <Moon className="w-4 h-4" />
                 </Button>
               </div>
+            </div>
+
+            <Separator />
+
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium text-sm">Modo de Editor Padrão</p>
+                <p className="text-sm text-muted-foreground mr-4">
+                  Escolha como as notas devem abrir inicialmente
+                </p>
+              </div>
+              <Select 
+                value={preferences.defaultEditorMode} 
+                onValueChange={(value: 'edit' | 'preview' | 'split') => updatePreferences({ defaultEditorMode: value })}
+              >
+                <SelectTrigger className="w-[180px] rounded-xl h-9">
+                  <SelectValue placeholder="Selecione..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="edit">Modo Edição</SelectItem>
+                  <SelectItem value="preview">Modo Visualização</SelectItem>
+                  <SelectItem value="split">Painel Dividido</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <Separator />
+
+            {!isMediumScreen && (
+              <>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-sm">Layout da Barra Lateral</p>
+                    <p className="text-sm text-muted-foreground mr-4">
+                      Como dividir o espaço em telas grandes
+                    </p>
+                  </div>
+                  <Select 
+                    value={preferences.sidebarLayout} 
+                    onValueChange={(value: 'split' | 'unified') => updatePreferences({ sidebarLayout: value })}
+                  >
+                    <SelectTrigger className="w-[160px] rounded-xl h-9">
+                      <SelectValue placeholder="Selecione..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="split">Separado</SelectItem>
+                      <SelectItem value="unified">Unificado</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Separator />
+              </>
+            )}
+
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium text-sm">Estilo das Tags</p>
+                <p className="text-sm text-muted-foreground">
+                  {tagStyle === 'dot' ? 'Apenas badge colorida' : 'Nomes completos'}
+                </p>
+              </div>
+              <Switch checked={tagStyle === 'dot'} onCheckedChange={toggleTagStyle} />
             </div>
           </CardContent>
         </Card>

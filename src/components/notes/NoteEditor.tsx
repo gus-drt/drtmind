@@ -4,7 +4,7 @@ import { Tag } from '@/hooks/useTags';
 import { MarkdownPreview } from './MarkdownPreview';
 import { TagSelector } from './TagSelector';
 import { Button } from '@/components/ui/button';
-import { Eye, Edit3, Trash2, ArrowLeft, Download, Upload } from 'lucide-react';
+import { Eye, Edit3, Trash2, ArrowLeft, Download } from 'lucide-react';
 
 interface NoteEditorProps {
   note: Note;
@@ -25,7 +25,6 @@ export const NoteEditor = ({ note, onUpdate, onDelete, onLinkClick, onBackToGrap
   const [localContent, setLocalContent] = useState(note.content);
   const textareaRef = useRef<HTMLTextAreaElement>(null);
   const titleInputRef = useRef<HTMLInputElement>(null);
-  const fileInputRef = useRef<HTMLInputElement>(null);
 
   // Sync local state when note changes (different note selected)
   useEffect(() => {
@@ -67,19 +66,6 @@ export const NoteEditor = ({ note, onUpdate, onDelete, onLinkClick, onBackToGrap
     URL.revokeObjectURL(url);
   }, [localTitle, localContent]);
 
-  const handleImport = useCallback(async (e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (!file) return;
-    try {
-      const text = await file.text();
-      setLocalContent(text);
-      onUpdate(note.id, { content: text });
-    } catch (error) {
-      console.error('Import error:', error);
-    } finally {
-      if (fileInputRef.current) fileInputRef.current.value = '';
-    }
-  }, [note.id, onUpdate]);
 
   const handleKeyDown = useCallback((e: React.KeyboardEvent<HTMLTextAreaElement>) => {
     if (e.key === 'Tab') {
@@ -143,15 +129,7 @@ export const NoteEditor = ({ note, onUpdate, onDelete, onLinkClick, onBackToGrap
           >
             <Download className="w-4 h-4" />
           </Button>
-          <Button
-            variant="ghost"
-            size="sm"
-            onClick={() => fileInputRef.current?.click()}
-            className="h-9 w-9 p-0 rounded-xl"
-            title="Importar de arquivo texto"
-          >
-            <Upload className="w-4 h-4" />
-          </Button>
+
           <Button
             variant="ghost"
             size="sm"
@@ -164,13 +142,7 @@ export const NoteEditor = ({ note, onUpdate, onDelete, onLinkClick, onBackToGrap
         </div>
       </div>
       
-      <input 
-        type="file" 
-        ref={fileInputRef} 
-        onChange={handleImport} 
-        accept=".md,.txt" 
-        className="hidden" 
-      />
+
 
       {/* Tags */}
       <div className="px-3 sm:px-4 py-2 border-b border-border/30">

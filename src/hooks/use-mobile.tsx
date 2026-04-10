@@ -17,3 +17,31 @@ export function useIsMobile() {
 
   return !!isMobile;
 }
+
+export function useIsMediumScreen() {
+  const [isMedium, setIsMedium] = React.useState<boolean | undefined>(undefined);
+
+  React.useEffect(() => {
+    // Medium screen: > mobile breakpoint and <= 1024px
+    const checkMedium = () => window.innerWidth >= MOBILE_BREAKPOINT && window.innerWidth <= 1024;
+    
+    setIsMedium(checkMedium());
+    
+    const mqlMobile = window.matchMedia(`(min-width: ${MOBILE_BREAKPOINT}px)`);
+    const mqlDesktop = window.matchMedia(`(max-width: 1024px)`);
+    
+    const onChange = () => {
+      setIsMedium(checkMedium());
+    };
+    
+    mqlMobile.addEventListener("change", onChange);
+    mqlDesktop.addEventListener("change", onChange);
+    
+    return () => {
+      mqlMobile.removeEventListener("change", onChange);
+      mqlDesktop.removeEventListener("change", onChange);
+    };
+  }, []);
+
+  return !!isMedium;
+}
