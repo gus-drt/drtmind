@@ -68,12 +68,21 @@ export const NoteLinkPreview = ({
       }
     };
 
+    const handleClick = (e: MouseEvent) => {
+      const target = e.target as HTMLElement;
+      if (target.classList.contains('note-link') || target.closest('.note-link')) {
+        setActiveLink(null);
+      }
+    };
+
     container.addEventListener('mouseenter', handleMouseEnter, true);
     container.addEventListener('mouseleave', handleMouseLeave, true);
+    container.addEventListener('click', handleClick, true);
 
     return () => {
       container.removeEventListener('mouseenter', handleMouseEnter, true);
       container.removeEventListener('mouseleave', handleMouseLeave, true);
+      container.removeEventListener('click', handleClick, true);
       if (hoverTimeoutRef.current) {
         window.clearTimeout(hoverTimeoutRef.current);
       }

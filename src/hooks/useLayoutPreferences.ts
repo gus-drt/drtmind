@@ -16,10 +16,19 @@ export interface LayoutPreferences {
   floatingGraphSize: { width: number; height: number };
   /** Editor display mode */
   editorMode: 'edit' | 'preview' | 'split';
+  /** Default editor mode when opening a note */
+  defaultEditorMode: 'edit' | 'preview' | 'split';
   /** Whether to show line numbers in editor */
   showLineNumbers: boolean;
   /** Font size for the editor */
   editorFontSize: number;
+  /** Persistent state for collapsible sections in NavigationSidebar */
+  sidebarSections: {
+    quickActions: boolean;
+    recent: boolean;
+    tags: boolean;
+    pinned: boolean;
+  };
 }
 
 const STORAGE_KEY = 'graphnotes-layout-preferences';
@@ -31,8 +40,15 @@ const DEFAULT_PREFERENCES: LayoutPreferences = {
   graphPosition: 'floating',
   floatingGraphSize: { width: 320, height: 240 },
   editorMode: 'split',
+  defaultEditorMode: 'preview',
   showLineNumbers: false,
   editorFontSize: 14,
+  sidebarSections: {
+    quickActions: true,
+    recent: true,
+    tags: true,
+    pinned: true,
+  },
 };
 
 /**
@@ -154,11 +170,25 @@ export function useLayoutPreferences() {
     });
   }, []);
 
+  /**
+   * Toggle expanded state of a sidebar section
+   */
+  const toggleSidebarSection = useCallback((section: keyof LayoutPreferences['sidebarSections'], isOpen: boolean) => {
+    setPreferences((prev) => ({
+      ...prev,
+      sidebarSections: {
+        ...prev.sidebarSections,
+        [section]: isOpen,
+      },
+    }));
+  }, []);
+
   return {
     preferences,
     updatePreferences,
     resetPreferences,
     toggleSidebar,
+    toggleSidebarSection,
     cycleEditorMode,
     cycleGraphPosition,
     defaults: DEFAULT_PREFERENCES,

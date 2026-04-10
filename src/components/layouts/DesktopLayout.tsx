@@ -88,13 +88,16 @@ export const DesktopLayout = ({
   // Persist graph position changes
   const handleGraphPositionChange = useCallback((position: GraphPosition) => {
     setGraphPosition(position);
-    updatePreferences({ graphPosition: position });
+    if (position !== 'fullscreen') {
+      updatePreferences({ graphPosition: position });
+    }
   }, [updatePreferences]);
 
   const handleToggleGraph = useCallback(() => {
     setShowGraph((prev) => {
       const newValue = !prev;
-      updatePreferences({ graphPosition: newValue ? graphPosition : 'hidden' });
+      const posToSave = graphPosition === 'fullscreen' ? 'floating' : graphPosition;
+      updatePreferences({ graphPosition: newValue ? posToSave : 'hidden' });
       return newValue;
     });
   }, [graphPosition, updatePreferences]);
@@ -142,13 +145,37 @@ export const DesktopLayout = ({
 
   return (
     <TooltipProvider delayDuration={300}>
-      <div className="h-screen flex flex-col bg-background">
-        <ResizablePanelGroup direction="horizontal" className="flex-1">
+      <div className="h-screen flex flex-col bg-background overflow-hidden">
+        <div className="flex-1 flex min-h-0">
+          {/* Collapsed Sidebar Toggle - Outside ResizablePanelGroup to avoid layout calculation bugs */}
+          {preferences.sidebarCollapsed && (
+            <div className="w-12 border-r flex flex-col items-center py-4 bg-sidebar gap-2 flex-shrink-0">
+              <Button variant="ghost" size="icon" onClick={toggleSidebar}>
+                <PanelLeft className="w-4 h-4" />
+              </Button>
+              <Button variant="ghost" size="icon" onClick={handleCreateNote}>
+                <Plus className="w-4 h-4" />
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={handleToggleGraph}
+                className={showGraph ? 'bg-accent' : ''}
+              >
+                <Network className="w-4 h-4" />
+              </Button>
+            </div>
+          )}
+
+          <ResizablePanelGroup direction="horizontal" className="flex-1">
           {/* Column 1: Navigation Sidebar */}
           {!preferences.sidebarCollapsed && (
             <>
               <ResizablePanel
+                id="sidebar-panel"
+                order={1}
                 defaultSize={preferences.navigationWidth}
+                onResize={(size) => updatePreferences({ navigationWidth: size })}
                 minSize={12}
                 maxSize={20}
                 className="bg-sidebar"
@@ -179,28 +206,15 @@ export const DesktopLayout = ({
             </>
           )}
 
-          {/* Collapsed Sidebar Toggle */}
-          {preferences.sidebarCollapsed && (
-            <div className="w-12 border-r flex flex-col items-center py-4 bg-sidebar gap-2">
-              <Button variant="ghost" size="icon" onClick={toggleSidebar}>
-                <PanelLeft className="w-4 h-4" />
-              </Button>
-              <Button variant="ghost" size="icon" onClick={handleCreateNote}>
-                <Plus className="w-4 h-4" />
-              </Button>
-              <Button
-                variant="ghost"
-                size="icon"
-                onClick={handleToggleGraph}
-                className={showGraph ? 'bg-accent' : ''}
-              >
-                <Network className="w-4 h-4" />
-              </Button>
-            </div>
-          )}
-
           {/* Column 2: Note List */}
-          <ResizablePanel defaultSize={preferences.listPanelWidth} minSize={15} maxSize={30}>
+          <ResizablePanel 
+            id="list-panel"
+            order={2}
+            defaultSize={preferences.listPanelWidth} 
+            onResize={(size) => updatePreferences({ listPanelWidth: size })}
+            minSize={15} 
+            maxSize={30}
+          >
             <NoteListPanel
               notes={displayedNotes}
               selectedNoteId={selectedNoteId}
@@ -218,7 +232,11 @@ export const DesktopLayout = ({
           <ResizableHandle withHandle />
 
           {/* Column 3: Editor + Graph */}
-          <ResizablePanel defaultSize={65 - (preferences.sidebarCollapsed ? 0 : preferences.navigationWidth)}>
+          <ResizablePanel 
+            id="editor-panel"
+            order={3}
+            defaultSize={65 - (preferences.sidebarCollapsed ? 0 : preferences.navigationWidth)}
+          >
             <div className="h-full flex flex-col relative">
               {selectedNote ? (
                 <>
@@ -233,7 +251,7 @@ export const DesktopLayout = ({
                     onAddTag={(tagId) => addTagToNote(selectedNote.id, tagId)}
                     onRemoveTag={(tagId) => removeTagFromNote(selectedNote.id, tagId)}
                     onCreateTag={createTag}
-                    defaultMode={preferences.editorMode}
+                    defaultMode={preferences.defaultEditorMode}
                   />
 
                   {/* Graph Panel */}
@@ -270,6 +288,7 @@ export const DesktopLayout = ({
             </div>
           </ResizablePanel>
         </ResizablePanelGroup>
+        </div>
 
         {/* Status Bar */}
         <StatusBar

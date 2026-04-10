@@ -4,6 +4,7 @@ import { ScrollArea } from '@/components/ui/scroll-area';
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/components/ui/collapsible';
 import { Tooltip, TooltipContent, TooltipTrigger } from '@/components/ui/tooltip';
 import { formatShortcut } from '@/hooks/useKeyboardShortcuts';
+import { useLayoutPreferences } from '@/hooks/useLayoutPreferences';
 import { Note } from '@/types/note';
 import { Tag } from '@/hooks/useTags';
 import {
@@ -70,6 +71,7 @@ export const NavigationSidebar = ({
   onSelectTag,
 }: NavigationSidebarProps) => {
   const navigate = useNavigate();
+  const { preferences: { sidebarSections }, toggleSidebarSection } = useLayoutPreferences();
 
   const pinnedNotes = notes.filter((n) => n.pinned);
   const recentNotes = [...notes]
@@ -115,7 +117,11 @@ export const NavigationSidebar = ({
 
       <ScrollArea className="flex-1 px-2">
         {/* Quick Actions */}
-        <Collapsible defaultOpen className="mb-2">
+        <Collapsible 
+          open={sidebarSections.quickActions} 
+          onOpenChange={(open) => toggleSidebarSection('quickActions', open)} 
+          className="mb-2"
+        >
           <CollapsibleTrigger className="flex items-center gap-2 w-full p-2 text-sm font-medium hover:bg-accent rounded-lg transition-colors">
             <Sparkles className="w-4 h-4" />
             <span>Ações Rápidas</span>
@@ -146,7 +152,11 @@ export const NavigationSidebar = ({
         </Collapsible>
 
         {/* Recent Notes */}
-        <Collapsible defaultOpen className="mb-2">
+        <Collapsible 
+          open={sidebarSections.recent} 
+          onOpenChange={(open) => toggleSidebarSection('recent', open)} 
+          className="mb-2"
+        >
           <CollapsibleTrigger className="flex items-center gap-2 w-full p-2 text-sm font-medium hover:bg-accent rounded-lg transition-colors">
             <Clock className="w-4 h-4" />
             <span>Recentes</span>
@@ -169,7 +179,11 @@ export const NavigationSidebar = ({
         </Collapsible>
 
         {/* Tags */}
-        <Collapsible defaultOpen className="mb-2">
+        <Collapsible 
+          open={sidebarSections.tags} 
+          onOpenChange={(open) => toggleSidebarSection('tags', open)} 
+          className="mb-2"
+        >
           <CollapsibleTrigger className="flex items-center gap-2 w-full p-2 text-sm font-medium hover:bg-accent rounded-lg transition-colors">
             <TagIcon className="w-4 h-4" />
             <span>Tags</span>
@@ -211,7 +225,11 @@ export const NavigationSidebar = ({
         </Collapsible>
 
         {/* Pinned Notes */}
-        <Collapsible defaultOpen className="mb-2">
+        <Collapsible 
+          open={sidebarSections.pinned} 
+          onOpenChange={(open) => toggleSidebarSection('pinned', open)} 
+          className="mb-2"
+        >
           <CollapsibleTrigger className="flex items-center gap-2 w-full p-2 text-sm font-medium hover:bg-accent rounded-lg transition-colors">
             <Pin className="w-4 h-4" />
             <span>Fixadas</span>

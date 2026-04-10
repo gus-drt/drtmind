@@ -178,7 +178,7 @@ export const NoteListPanel = ({
         <div
           role="listbox"
           aria-label="Lista de notas"
-          className={`p-2 space-y-1 ${isDragging ? 'select-none' : ''}`}
+          className={`p-2 grid grid-cols-1 gap-1 w-full ${isDragging ? 'select-none' : ''}`}
         >
           {notes.length === 0 ? (
             <p className="text-xs text-muted-foreground text-center py-8" role="status">
@@ -235,7 +235,7 @@ interface NoteListItemProps {
   dragEnabled: boolean;
   dragProps?: ReturnType<typeof useDragAndDrop<Note>>['getDragItemProps'] extends (item: Note, index: number) => infer R ? R : never;
   isDropTarget: boolean;
-  dropPosition?: 'before' | 'after';
+  dropPosition?: 'before' | 'after' | 'on';
 }
 
 const NoteListItem = ({
@@ -263,16 +263,16 @@ const NoteListItem = ({
     : '';
 
   return (
-    <ContextMenu>
-      <ContextMenuTrigger asChild>
-        <HoverCard openDelay={500} closeDelay={100}>
+    <HoverCard openDelay={500} closeDelay={100}>
+      <ContextMenu>
+        <ContextMenuTrigger asChild>
           <HoverCardTrigger asChild>
             <div
               role="button"
               tabIndex={0}
               aria-selected={isSelected}
               aria-label={`Nota: ${note.title}${note.pinned ? ' (fixada)' : ''}`}
-              className={`w-full text-left p-2.5 rounded-lg cursor-pointer transition-all group focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 ${isSelected
+              className={`w-full block text-left p-2.5 rounded-lg cursor-pointer transition-all group focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-1 overflow-hidden ${isSelected
                 ? 'bg-primary text-primary-foreground shadow-sm'
                 : 'hover:bg-muted/80'
                 } ${dropIndicatorClasses}`}
@@ -285,25 +285,25 @@ const NoteListItem = ({
               }}
               {...(dragEnabled ? dragProps : {})}
             >
-              <div className="flex items-start gap-2 min-w-0">
+              <div className="flex items-start gap-2 w-full min-w-0 overflow-hidden">
                 {dragEnabled ? (
                   <GripVertical className="w-4 h-4 mt-0.5 flex-shrink-0 opacity-40 cursor-grab active:cursor-grabbing" aria-hidden="true" />
                 ) : (
                   <FileText className="w-4 h-4 mt-0.5 flex-shrink-0 opacity-60" aria-hidden="true" />
                 )}
                 <div className="min-w-0 flex-1 overflow-hidden">
-                  <div className="flex items-center gap-1">
+                  <div className="flex items-center gap-1 w-full min-w-0">
                     {note.pinned && <Pin className="w-3 h-3 flex-shrink-0" />}
-                    <h3 className="font-medium truncate text-sm">{note.title}</h3>
+                    <h3 className="font-medium truncate text-sm flex-1 min-w-0">{note.title}</h3>
                   </div>
                   {prefs.preview && (
-                    <p className={`text-xs truncate mt-0.5 ${isSelected ? 'opacity-70' : 'text-muted-foreground'
+                    <p className={`text-xs truncate w-full mt-0.5 block ${isSelected ? 'opacity-70' : 'text-muted-foreground'
                       }`}>
-                      {note.content.replace(/[#*_\[\]`]/g, '').slice(0, 60)}...
+                      {note.content.replace(/[#*_\[\]`]/g, '').slice(0, 150)}
                     </p>
                   )}
                   {prefs.links && note.linkedNotes.length > 0 && (
-                    <p className={`text-xs mt-0.5 ${isSelected ? 'opacity-60' : 'text-muted-foreground'
+                    <p className={`text-xs mt-0.5 truncate ${isSelected ? 'opacity-60' : 'text-muted-foreground'
                       }`}>
                       🔗 {note.linkedNotes.length}
                     </p>
@@ -329,48 +329,48 @@ const NoteListItem = ({
               </div>
             </div>
           </HoverCardTrigger>
-          <HoverCardContent side="right" align="start" className="w-80 p-0">
-            <div className="p-3 border-b">
-              <h4 className="font-semibold text-sm">{note.title}</h4>
-              <p className="text-xs text-muted-foreground mt-1">
-                Editado: {new Date(note.updatedAt).toLocaleDateString('pt-BR', {
-                  day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
-                })}
-              </p>
-            </div>
-            <div className="p-3 max-h-48 overflow-auto text-sm">
-              <MarkdownPreview content={note.content.slice(0, 500)} />
-            </div>
-          </HoverCardContent>
-        </HoverCard>
-      </ContextMenuTrigger>
-      <ContextMenuContent className="w-48">
-        <ContextMenuItem onClick={onSelect}>
-          <ExternalLink className="w-4 h-4 mr-2" />
-          Abrir
-        </ContextMenuItem>
-        <ContextMenuItem onClick={onTogglePin} disabled={!note.pinned && pinnedCount >= 3}>
-          <Pin className="w-4 h-4 mr-2" />
-          {note.pinned ? 'Desafixar' : 'Fixar'}
-        </ContextMenuItem>
-        <ContextMenuSeparator />
-        <ContextMenuItem onClick={onCopy}>
-          <Copy className="w-4 h-4 mr-2" />
-          Copiar conteúdo
-          <ContextMenuShortcut>⌘C</ContextMenuShortcut>
-        </ContextMenuItem>
-        <ContextMenuItem onClick={onExport}>
-          <Download className="w-4 h-4 mr-2" />
-          Exportar .md
-        </ContextMenuItem>
-        <ContextMenuSeparator />
-        <ContextMenuItem onClick={onDelete} className="text-destructive focus:text-destructive">
-          <Trash2 className="w-4 h-4 mr-2" />
-          Excluir
-          <ContextMenuShortcut>⌫</ContextMenuShortcut>
-        </ContextMenuItem>
-      </ContextMenuContent>
-    </ContextMenu>
+        </ContextMenuTrigger>
+        <HoverCardContent side="right" align="start" className="w-80 p-0">
+          <div className="p-3 border-b">
+            <h4 className="font-semibold text-sm truncate">{note.title}</h4>
+            <p className="text-xs text-muted-foreground mt-1">
+              Editado: {new Date(note.updatedAt).toLocaleDateString('pt-BR', {
+                day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit'
+              })}
+            </p>
+          </div>
+          <div className="p-3 max-h-48 overflow-auto text-sm">
+            <MarkdownPreview content={note.content.slice(0, 500)} />
+          </div>
+        </HoverCardContent>
+        <ContextMenuContent className="w-48">
+          <ContextMenuItem onClick={onSelect}>
+            <ExternalLink className="w-4 h-4 mr-2" />
+            Abrir
+          </ContextMenuItem>
+          <ContextMenuItem onClick={onTogglePin} disabled={!note.pinned && pinnedCount >= 3}>
+            <Pin className="w-4 h-4 mr-2" />
+            {note.pinned ? 'Desafixar' : 'Fixar'}
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem onClick={onCopy}>
+            <Copy className="w-4 h-4 mr-2" />
+            Copiar conteúdo
+            <ContextMenuShortcut>⌘C</ContextMenuShortcut>
+          </ContextMenuItem>
+          <ContextMenuItem onClick={onExport}>
+            <Download className="w-4 h-4 mr-2" />
+            Exportar .md
+          </ContextMenuItem>
+          <ContextMenuSeparator />
+          <ContextMenuItem onClick={onDelete} className="text-destructive focus:text-destructive">
+            <Trash2 className="w-4 h-4 mr-2" />
+            Excluir
+            <ContextMenuShortcut>⌫</ContextMenuShortcut>
+          </ContextMenuItem>
+        </ContextMenuContent>
+      </ContextMenu>
+    </HoverCard>
   );
 };
 

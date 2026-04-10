@@ -22,11 +22,20 @@ import {
 import { ArrowLeft, Trash2, Loader2, User, Shield, Palette, Sun, Moon, Lock, HardDrive, LogOut } from 'lucide-react';
 import { toast } from 'sonner';
 import { useTheme } from 'next-themes';
+import { useLayoutPreferences } from '@/hooks/useLayoutPreferences';
+import {
+  Select,
+  SelectContent,
+  SelectItem,
+  SelectTrigger,
+  SelectValue,
+} from '@/components/ui/select';
 
 const Settings = () => {
   const navigate = useNavigate();
   const { user, loading: authLoading, signOut } = useAuth();
   const { theme, setTheme } = useTheme();
+  const { preferences, updatePreferences } = useLayoutPreferences();
   const [deleting, setDeleting] = useState(false);
   const [confirmText, setConfirmText] = useState('');
   const [tagStyle, setTagStyle] = useState(() => localStorage.getItem('tagDisplayStyle') || 'name');
@@ -183,6 +192,30 @@ const Settings = () => {
                   <Moon className="w-4 h-4" />
                 </Button>
               </div>
+            </div>
+
+            <Separator />
+
+            <div className="flex items-center justify-between">
+              <div>
+                <p className="font-medium text-sm">Modo de Editor Padrão</p>
+                <p className="text-sm text-muted-foreground mr-4">
+                  Escolha como as notas devem abrir inicialmente
+                </p>
+              </div>
+              <Select 
+                value={preferences.defaultEditorMode} 
+                onValueChange={(value: 'edit' | 'preview' | 'split') => updatePreferences({ defaultEditorMode: value })}
+              >
+                <SelectTrigger className="w-[140px] rounded-xl h-9">
+                  <SelectValue placeholder="Selecione..." />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="edit">Modo Edição</SelectItem>
+                  <SelectItem value="preview">Modo Visualização</SelectItem>
+                  <SelectItem value="split">Painel Dividido</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
 
             <Separator />

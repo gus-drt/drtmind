@@ -484,7 +484,7 @@ export const NoteGraph = ({ notes, links, selectedNoteId, onSelectNote, isActive
 
     animationRef.current = requestAnimationFrame(simulate);
     return () => { if (animationRef.current) cancelAnimationFrame(animationRef.current); };
-  }, [stableLinks, selectedNoteId, indexNoteId, dpr]);
+  }, [stableLinks, selectedNoteId, indexNoteId, dpr, getTagsForNote]);
 
   const getNodeAtPosition = useCallback((sx: number, sy: number): GraphNode | null => {
     const cam = cameraRef.current;
