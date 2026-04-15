@@ -3,7 +3,7 @@ import { Tag } from '@/hooks/useTags';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { useState, useEffect } from 'react';
-import { Plus, Search, FileText, Loader2, Pin, SlidersHorizontal } from 'lucide-react';
+import { Plus, Search, FileText, Loader2, Pin, SlidersHorizontal, Globe } from 'lucide-react';
 import {
   DropdownMenu,
   DropdownMenuContent,
@@ -141,7 +141,10 @@ export const NoteList = ({
                     <div className="flex items-start gap-2 min-w-0">
                       <FileText className="w-4 h-4 mt-0.5 flex-shrink-0 opacity-60" />
                       <div className="min-w-0 flex-1 overflow-hidden">
-                        <h3 className="font-medium truncate text-sm">{note.title}</h3>
+                        <div className="flex items-center gap-1 w-full min-w-0">
+                          {note.isPublic && <span title="Nota pública"><Globe className="w-3 h-3 flex-shrink-0 text-primary opacity-70" /></span>}
+                          <h3 className="font-medium truncate text-sm">{note.title}</h3>
+                        </div>
                         {prefs.preview && (
                           <p className={`text-xs truncate mt-0.5 ${
                             selectedNoteId === note.id ? 'opacity-70' : 'text-muted-foreground'

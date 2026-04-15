@@ -23,7 +23,7 @@ import { ArrowLeft, Trash2, Loader2, User, Shield, Palette, Sun, Moon, Lock, Har
 import { toast } from 'sonner';
 import { useTheme } from 'next-themes';
 import { useLayoutPreferences } from '@/hooks/useLayoutPreferences';
-import { useIsMediumScreen } from '@/hooks/use-mobile';
+import { useIsMediumScreen, useIsMobile } from '@/hooks/use-mobile';
 import {
   Select,
   SelectContent,
@@ -38,6 +38,7 @@ const Settings = () => {
   const { theme, setTheme } = useTheme();
   const { preferences, updatePreferences } = useLayoutPreferences();
   const isMediumScreen = useIsMediumScreen();
+  const isMobile = useIsMobile();
   const [deleting, setDeleting] = useState(false);
   const [confirmText, setConfirmText] = useState('');
   const [tagStyle, setTagStyle] = useState(() => localStorage.getItem('tagDisplayStyle') || 'name');
@@ -198,32 +199,32 @@ const Settings = () => {
 
             <Separator />
 
-            <div className="flex items-center justify-between">
-              <div>
-                <p className="font-medium text-sm">Modo de Editor Padrão</p>
-                <p className="text-sm text-muted-foreground mr-4">
-                  Escolha como as notas devem abrir inicialmente
-                </p>
-              </div>
-              <Select 
-                value={preferences.defaultEditorMode} 
-                onValueChange={(value: 'edit' | 'preview' | 'split') => updatePreferences({ defaultEditorMode: value })}
-              >
-                <SelectTrigger className="w-[180px] rounded-xl h-9">
-                  <SelectValue placeholder="Selecione..." />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="edit">Modo Edição</SelectItem>
-                  <SelectItem value="preview">Modo Visualização</SelectItem>
-                  <SelectItem value="split">Painel Dividido</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-
-            <Separator />
-
-            {!isMediumScreen && (
+            {!(isMobile || isMediumScreen) && (
               <>
+                <div className="flex items-center justify-between">
+                  <div>
+                    <p className="font-medium text-sm">Modo de Editor Padrão</p>
+                    <p className="text-sm text-muted-foreground mr-4">
+                      Escolha como as notas devem abrir inicialmente
+                    </p>
+                  </div>
+                  <Select 
+                    value={preferences.defaultEditorMode} 
+                    onValueChange={(value: 'edit' | 'preview' | 'split') => updatePreferences({ defaultEditorMode: value })}
+                  >
+                    <SelectTrigger className="w-[180px] rounded-xl h-9">
+                      <SelectValue placeholder="Selecione..." />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="edit">Modo Edição</SelectItem>
+                      <SelectItem value="preview">Modo Visualização</SelectItem>
+                      <SelectItem value="split">Painel Dividido</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+
+                <Separator />
+
                 <div className="flex items-center justify-between">
                   <div>
                     <p className="font-medium text-sm">Layout da Barra Lateral</p>
