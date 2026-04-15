@@ -138,6 +138,7 @@ export async function migrateFromLocalStorage(userId: string): Promise<boolean> 
       pinnedAt: n.pinnedAt
         ? (typeof n.pinnedAt === 'string' ? n.pinnedAt : new Date(n.pinnedAt).toISOString())
         : null,
+      isPublic: n.isPublic ?? false,
     }));
 
     // Write all notes to IndexedDB in a single transaction (atomic)
@@ -157,7 +158,7 @@ export async function migrateFromLocalStorage(userId: string): Promise<boolean> 
 
 // ─── Helpers ─────────────────────────────────────────────────
 
-export function noteToIDB(note: { id: string; title: string; content: string; createdAt: Date | string; updatedAt: Date | string; pinned: boolean; pinnedAt: Date | string | null }, userId: string): IDBNote {
+export function noteToIDB(note: { id: string; title: string; content: string; createdAt: Date | string; updatedAt: Date | string; pinned: boolean; pinnedAt: Date | string | null; isPublic?: boolean }, userId: string): IDBNote {
   return {
     id: note.id,
     userId,
@@ -169,6 +170,7 @@ export function noteToIDB(note: { id: string; title: string; content: string; cr
     pinnedAt: note.pinnedAt
       ? (note.pinnedAt instanceof Date ? note.pinnedAt.toISOString() : note.pinnedAt)
       : null,
+    isPublic: note.isPublic ?? false,
   };
 }
 
@@ -182,6 +184,7 @@ export function idbToNote(idb: IDBNote) {
     linkedNotes: [] as string[],  // Will be recomputed by extractLinks
     pinned: idb.pinned,
     pinnedAt: idb.pinnedAt ? new Date(idb.pinnedAt) : null,
+    isPublic: (idb as any).isPublic ?? false,
   };
 }
 

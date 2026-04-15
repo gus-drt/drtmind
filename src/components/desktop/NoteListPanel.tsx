@@ -35,6 +35,7 @@ import {
   ExternalLink,
   Download,
   GripVertical,
+  Globe,
 } from 'lucide-react';
 
 interface NoteListPanelProps {
@@ -294,6 +295,7 @@ const NoteListItem = ({
                 <div className="min-w-0 flex-1 overflow-hidden">
                   <div className="flex items-center gap-1 w-full min-w-0">
                     {note.pinned && <Pin className="w-3 h-3 flex-shrink-0" />}
+                    {note.isPublic && <span title="Nota pública"><Globe className="w-3 h-3 flex-shrink-0 text-primary opacity-70" /></span>}
                     <h3 className="font-medium truncate text-sm flex-1 min-w-0">{note.title}</h3>
                   </div>
                   {prefs.preview && (

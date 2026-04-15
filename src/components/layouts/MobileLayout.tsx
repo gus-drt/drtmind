@@ -21,6 +21,7 @@ interface MobileLayoutProps {
   updateNote: (id: string, updates: Partial<Pick<Note, 'title' | 'content'>>) => void;
   deleteNote: (id: string) => void;
   togglePinNote: (id: string) => void;
+  toggleNotePublic: (id: string) => void;
   pinnedCount: number;
   links: NoteLink[];
   navigateToNote: (title: string) => void;
@@ -49,6 +50,7 @@ export const MobileLayout = ({
   updateNote,
   deleteNote,
   togglePinNote,
+  toggleNotePublic,
   pinnedCount,
   links,
   navigateToNote,
@@ -144,6 +146,8 @@ export const MobileLayout = ({
               onAddTag={(tagId) => addTagToNote(selectedNote.id, tagId)}
               onRemoveTag={(tagId) => removeTagFromNote(selectedNote.id, tagId)}
               onCreateTag={createTag}
+              isPublic={selectedNote.isPublic}
+              onTogglePublic={() => toggleNotePublic(selectedNote.id)}
             />
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-center p-4 sm:p-8">

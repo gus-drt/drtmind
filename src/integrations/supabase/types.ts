@@ -52,6 +52,7 @@ export type Database = {
           content: string
           created_at: string
           id: string
+          is_public: boolean
           pinned: boolean
           pinned_at: string | null
           title: string
@@ -62,6 +63,7 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
+          is_public?: boolean
           pinned?: boolean
           pinned_at?: string | null
           title?: string
@@ -72,6 +74,7 @@ export type Database = {
           content?: string
           created_at?: string
           id?: string
+          is_public?: boolean
           pinned?: boolean
           pinned_at?: string | null
           title?: string

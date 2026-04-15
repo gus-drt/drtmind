@@ -3,6 +3,7 @@ import { Note } from '@/types/note';
 import { Tag } from '@/hooks/useTags';
 import { MarkdownPreview } from './MarkdownPreview';
 import { TagSelector } from './TagSelector';
+import { SharePopover } from './SharePopover';
 import { Button } from '@/components/ui/button';
 import { Eye, Edit3, Trash2, ArrowLeft, Download } from 'lucide-react';
 
@@ -17,9 +18,11 @@ interface NoteEditorProps {
   onAddTag: (tagId: string) => void;
   onRemoveTag: (tagId: string) => void;
   onCreateTag: (name: string, color: string) => Promise<Tag | null>;
+  isPublic?: boolean;
+  onTogglePublic?: () => void;
 }
 
-export const NoteEditor = ({ note, onUpdate, onDelete, onLinkClick, onBackToGraph, allTags, noteTags, onAddTag, onRemoveTag, onCreateTag }: NoteEditorProps) => {
+export const NoteEditor = ({ note, onUpdate, onDelete, onLinkClick, onBackToGraph, allTags, noteTags, onAddTag, onRemoveTag, onCreateTag, isPublic = false, onTogglePublic }: NoteEditorProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [localTitle, setLocalTitle] = useState(note.title);
   const [localContent, setLocalContent] = useState(note.content);
@@ -129,6 +132,14 @@ export const NoteEditor = ({ note, onUpdate, onDelete, onLinkClick, onBackToGrap
           >
             <Download className="w-4 h-4" />
           </Button>
+
+          {onTogglePublic && (
+            <SharePopover
+              noteId={note.id}
+              isPublic={isPublic}
+              onTogglePublic={onTogglePublic}
+            />
+          )}
 
           <Button
             variant="ghost"

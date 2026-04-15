@@ -145,6 +145,7 @@ async function executeSyncOp(op: SyncOperation): Promise<void> {
       const updateData: Record<string, any> = { updated_at: new Date().toISOString() };
       if (op.payload.title !== undefined) updateData.title = op.payload.title;
       if (op.payload.content !== undefined) updateData.content = op.payload.content;
+      if (op.payload.is_public !== undefined) updateData.is_public = op.payload.is_public;
 
       const { error } = await supabase
         .from('notes')

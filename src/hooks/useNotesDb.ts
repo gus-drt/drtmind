@@ -42,6 +42,7 @@ const mapDbNote = (row: any): Note => ({
   linkedNotes: extractLinks(row.content),
   pinned: row.pinned,
   pinnedAt: row.pinned_at ? new Date(row.pinned_at) : null,
+  isPublic: row.is_public ?? false,
 });
 
 // Convert IDBNote → Note (with linked notes)
@@ -139,6 +140,7 @@ export const useNotes = () => {
         linkedNotes: extractLinks(n.content),
         pinned: n.pinned || false,
         pinnedAt: n.pinned ? now : null,
+        isPublic: false,
       }));
 
       // Persist to IndexedDB
@@ -289,6 +291,7 @@ export const useNotes = () => {
         linkedNotes: extractLinks(content),
         pinned: false,
         pinnedAt: null,
+        isPublic: false,
       };
 
       // 1. Save to IndexedDB immediately (offline-first)
@@ -516,6 +519,47 @@ export const useNotes = () => {
     [user, isOnline, notes]
   );
 
+  // ─── toggleNotePublic ──────────────────────────────────────
+  const toggleNotePublic = useCallback(
+    async (id: string) => {
+      if (!user) return;
+      const note = notes.find(n => n.id === id);
+      if (!note) return;
+
+      const newIsPublic = !note.isPublic;
+
+      // 1. Update React state optimistically
+      setNotes(prev =>
+        prev.map(n => (n.id === id ? { ...n, isPublic: newIsPublic } : n))
+      );
+
+      // 2. Update IndexedDB
+      const updatedNote = { ...note, isPublic: newIsPublic };
+      await idbPut(noteToIDB(updatedNote, user.id));
+
+      // 3. Sync to cloud (direct — not debounced, this is an intentional user action)
+      if (isOnline && supabase) {
+        try {
+          const { error } = await supabase
+            .from('notes')
+            .update({ is_public: newIsPublic })
+            .eq('id', id)
+            .eq('user_id', user.id);
+          if (error) throw error;
+        } catch {
+          await enqueue(id, user.id, 'update', { is_public: newIsPublic });
+        }
+      } else {
+        await enqueue(id, user.id, 'update', { is_public: newIsPublic });
+      }
+
+      toast.success(
+        newIsPublic ? 'Nota pública — link ativo' : 'Nota privada — link revogado'
+      );
+    },
+    [user, isOnline, notes]
+  );
+
   // ─── Computed values ───────────────────────────────────────
 
   const selectedNote = notes.find(n => n.id === selectedNoteId) || null;
@@ -594,6 +638,7 @@ export const useNotes = () => {
     updateNote,
     deleteNote,
     togglePinNote,
+    toggleNotePublic,
     pinnedCount,
     getLinks,
     getNoteByTitle,

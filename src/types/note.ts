@@ -7,6 +7,7 @@ export interface Note {
   linkedNotes: string[]; // IDs of linked notes
   pinned: boolean;
   pinnedAt: Date | null;
+  isPublic: boolean;
 }
 
 export interface NoteLink {
@@ -35,6 +36,7 @@ export interface IDBNote {
   updatedAt: string;
   pinned: boolean;
   pinnedAt: string | null;
+  isPublic: boolean;
 }
 
 export type SyncOperationType = 'create' | 'update' | 'delete' | 'pin';
