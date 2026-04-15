@@ -19,6 +19,7 @@ const PublicNote = () => {
   const { noteId } = useParams<{ noteId: string }>();
   const [note, setNote] = useState<PublicNoteData | null>(null);
   const [state, setState] = useState<LoadingState>('loading');
+  const [publicLinkedNotes, setPublicLinkedNotes] = useState<{title: string, id: string}[]>([]);
 
   useEffect(() => {
     const fetchPublicNote = async () => {
@@ -39,6 +40,26 @@ const PublicNote = () => {
         if (error || !data) {
           setState('not-found');
           return;
+        }
+
+        // Fetch public linked notes (Extract links first)
+        const linkRegex = /\[\[([^\]]+)\]\]/g;
+        const links: string[] = [];
+        let match;
+        while ((match = linkRegex.exec(data.content)) !== null) {
+          links.push(match[1]);
+        }
+
+        if (links.length > 0) {
+          const { data: linkedData } = await supabase
+            .from('notes')
+            .select('id, title')
+            .in('title', links)
+            .eq('is_public', true);
+            
+          if (linkedData) {
+            setPublicLinkedNotes(linkedData);
+          }
         }
 
         // Fetch tags for this note (read-only badges)
@@ -187,7 +208,11 @@ const PublicNote = () => {
 
         {/* Markdown content — [[links]] render as styled spans but are not clickable */}
         <article className="prose prose-sm sm:prose max-w-none dark:prose-invert">
-          <MarkdownPreview content={processedContent} />
+          <MarkdownPreview 
+            content={processedContent} 
+            isPublicView={true} 
+            publicLinkedNotes={publicLinkedNotes} 
+          />
         </article>
       </main>
 

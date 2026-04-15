@@ -306,7 +306,8 @@ export const DesktopLayout = ({
                     onRemoveTag={(tagId) => removeTagFromNote(selectedNote.id, tagId)}
                     onCreateTag={createTag}
                     isPublic={selectedNote.isPublic}
-                    onTogglePublic={() => toggleNotePublic(selectedNote.id)}
+                    onTogglePublic={(id) => toggleNotePublic(id || selectedNote.id)}
+                    linkedNotesData={notes.filter(n => selectedNote.linkedNotes.includes(n.title))}
                     defaultMode={preferences.defaultEditorMode}
                   />
 

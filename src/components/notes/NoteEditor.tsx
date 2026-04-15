@@ -19,10 +19,11 @@ interface NoteEditorProps {
   onRemoveTag: (tagId: string) => void;
   onCreateTag: (name: string, color: string) => Promise<Tag | null>;
   isPublic?: boolean;
-  onTogglePublic?: () => void;
+  onTogglePublic?: (id?: string) => void;
+  linkedNotesData?: Note[];
 }
 
-export const NoteEditor = ({ note, onUpdate, onDelete, onLinkClick, onBackToGraph, allTags, noteTags, onAddTag, onRemoveTag, onCreateTag, isPublic = false, onTogglePublic }: NoteEditorProps) => {
+export const NoteEditor = ({ note, onUpdate, onDelete, onLinkClick, onBackToGraph, allTags, noteTags, onAddTag, onRemoveTag, onCreateTag, isPublic = false, onTogglePublic, linkedNotesData = [] }: NoteEditorProps) => {
   const [isEditing, setIsEditing] = useState(false);
   const [localTitle, setLocalTitle] = useState(note.title);
   const [localContent, setLocalContent] = useState(note.content);
@@ -138,6 +139,7 @@ export const NoteEditor = ({ note, onUpdate, onDelete, onLinkClick, onBackToGrap
               noteId={note.id}
               isPublic={isPublic}
               onTogglePublic={onTogglePublic}
+              linkedNotesData={linkedNotesData}
             />
           )}
 

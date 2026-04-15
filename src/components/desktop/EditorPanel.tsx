@@ -35,7 +35,8 @@ interface EditorPanelProps {
   onRemoveTag: (tagId: string) => void;
   onCreateTag: (name: string, color: string) => Promise<Tag | null>;
   isPublic?: boolean;
-  onTogglePublic?: () => void;
+  onTogglePublic?: (id?: string) => void;
+  linkedNotesData?: Note[];
   defaultMode?: EditorMode;
   onModeChange?: (mode: EditorMode) => void;
 }
@@ -53,6 +54,7 @@ export const EditorPanel = ({
   onCreateTag,
   isPublic = false,
   onTogglePublic,
+  linkedNotesData = [],
   defaultMode = 'edit',
   onModeChange,
 }: EditorPanelProps) => {
@@ -194,6 +196,7 @@ export const EditorPanel = ({
               noteId={note.id}
               isPublic={isPublic}
               onTogglePublic={onTogglePublic}
+              linkedNotesData={linkedNotesData}
               compact
             />
           )}

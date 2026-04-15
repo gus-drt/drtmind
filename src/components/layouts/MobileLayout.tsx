@@ -147,7 +147,8 @@ export const MobileLayout = ({
               onRemoveTag={(tagId) => removeTagFromNote(selectedNote.id, tagId)}
               onCreateTag={createTag}
               isPublic={selectedNote.isPublic}
-              onTogglePublic={() => toggleNotePublic(selectedNote.id)}
+              onTogglePublic={(id) => toggleNotePublic(id || selectedNote.id)}
+              linkedNotesData={notes.filter(n => selectedNote.linkedNotes.includes(n.title))}
             />
           ) : (
             <div className="flex flex-col items-center justify-center h-full text-center p-4 sm:p-8">
